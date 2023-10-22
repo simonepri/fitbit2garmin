@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Downloads lifetime Fitbit data and exports it into the format supported by Garmin Connect data importer. This includes historical body composition data (weight, BMI, and fat percentage), activity data (calories burned, steps, distance, active minutes, and floors climbed), and individual GPS exercises (TCX)."
 authors = ["simonepri <simone.primarosa@gmail.com>"]
 license = "MIT"
+homepage = "https://github.com/simonepri/fitbit2garmin#readme"
 repository = "https://github.com/simonepri/fitbit2garmin"
+readme = "readme.md"
 keywords = ["fitbit", "garmin", "connect", "migration", "transfer", "export", "import", "historical", "lifetime", "timeline", "weight", "bmi", "fat", "calories", "steps", "distance", "active minutes", "floors", "activities", "gps", "tcx"]
 
 [tool.poetry.scripts]
