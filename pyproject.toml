@@ -7,6 +7,9 @@ license = "MIT"
 repository = "https://github.com/simonepri/fitbit2garmin"
 keywords = ["fitbit", "garmin", "connect", "migration", "transfer", "export", "import", "historical", "lifetime", "timeline", "weight", "bmi", "fat", "calories", "steps", "distance", "active minutes", "floors", "activities", "gps", "tcx"]
 
+[tool.poetry.scripts]
+fitbit2garmin = 'fitbit2garmin.cli:run'
+
 [tool.poetry.group.dev.dependencies]
 taskipy = "^1.12.0"
 pylint = "^3.0.1"
@@ -22,6 +25,7 @@ format = "python -m ufmt format fitbit2garmin"
 [tool.poetry.dependencies]
 python = "^3.9"
 aiohttp = "^3.8.6"
+click = "^8.1.7"
 python-dateutil = "^2.8.2"
 asyncio-throttle = "^1.0.2"
 annotated-types = "^0.6.0"
