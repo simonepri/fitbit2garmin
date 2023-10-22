@@ -23,6 +23,7 @@ types-python-dateutil = "^2.8.19.14"
 lint = "python -m pylint fitbit2garmin -v --output-format colorized --disable logging-fstring-interpolation"
 types = "python -m mypy fitbit2garmin"
 format = "python -m ufmt format fitbit2garmin"
+check-format = "python -m ufmt check fitbit2garmin"
 
 [tool.poetry.dependencies]
 python = "^3.9"
