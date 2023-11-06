@@ -86,7 +86,7 @@ async def dump_activity_tcx(
         logging.info("Activity log list fetched.")
 
     # Count number of activities.
-    with activity_log_file_path.open("rbU") as fr:
+    with activity_log_file_path.open("r") as fr:
         num_activities = sum(1 for _ in fr)
 
     # Fetch tcx for each activity.
