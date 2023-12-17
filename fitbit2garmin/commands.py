@@ -65,12 +65,9 @@ async def dump_activity_tcx(
     auth_file_path = cache_directory / auth_file_name
 
     # Fetch activity log.
-    activity_log_file_path = (
-        cache_directory / f".exercises.{start_date}:{end_date}.jsonl"
-    )
-    activity_log_done_file_path = (
-        cache_directory / f".exercises.{start_date}:{end_date}"
-    )
+    date_range = f"{start_date}-{end_date}"
+    activity_log_file_path = cache_directory / f".exercises.{date_range}.jsonl"
+    activity_log_done_file_path = cache_directory / f".exercises.{date_range}"
     if not activity_log_file_path.exists() or not activity_log_done_file_path.exists():
         get_activity_log_list = run_aiohttp_fitbit_api_call(
             "activity-log-list",
@@ -145,7 +142,7 @@ async def dump_weight(
     ]
     for i, (start_date_range, end_date_range) in enumerate(date_pairs):
         progress = f"[{i+1}/{len(date_pairs)}]"
-        date_range = f"{start_date_range}:{end_date_range}"
+        date_range = f"{start_date_range}-{end_date_range}"
         weight_file_path = weight_directory / f"weight.{date_range}.csv"
         weight_done_file_path = cache_directory / f".weight.{date_range}"
         if weight_done_file_path.exists():
@@ -164,7 +161,7 @@ async def dump_weight(
             weight_done_file_path.touch()
             continue
         # Create weight csv file
-        with weight_file_path.open("w", encoding="utf-8") as fw:
+        with weight_file_path.open("w") as fw:
             print("Body", file=fw)
             print("Date,Weight,BMI,Fat", file=fw)
             for entry in entries:
@@ -198,7 +195,7 @@ async def dump_activity(
     ]
     for i, (start_date_range, end_date_range) in enumerate(date_pairs):
         progress = f"[{i+1}/{len(date_pairs)}]"
-        date_range = f"{start_date_range}:{end_date_range}"
+        date_range = f"{start_date_range}-{end_date_range}"
         activity_file_path = activity_directory / f"activity.{date_range}.csv"
         activity_done_file_path = cache_directory / f".activity.{date_range}"
         if activity_done_file_path.exists():
