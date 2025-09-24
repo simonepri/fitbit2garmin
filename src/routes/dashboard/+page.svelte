@@ -1,7 +1,7 @@
 <script lang="ts">
     import DownloadTasksForm from '$lib/components/DownloadTasksForm.svelte';
     import DownloadsTable from '$lib/components/DownloadsTable.svelte';
-    import QueueStatusDisplay from '$lib/components/QueueStatusDisplay.svelte';
+    import DownloadStats from '$lib/components/DownloadStats.svelte';
     import { downloads, stats } from '$lib/stores/downloads';
     import JSZip from 'jszip';
     import { toast } from '$lib/stores/toast';
@@ -53,7 +53,7 @@
     <DownloadTasksForm />
 
 <div class="space-y-4">
-    <QueueStatusDisplay />
+    <DownloadStats />
     <div class="flex justify-end flex-wrap gap-4">
         {#if $stats.total > 0}
             <button on:click={() => {if(confirm('Are you sure you want to delete all tasks and downloaded data? This cannot be undone.')) downloads.clearAll()}} class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded cursor-pointer">
