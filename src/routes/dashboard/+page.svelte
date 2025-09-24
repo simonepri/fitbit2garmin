@@ -4,8 +4,16 @@
     import QueueStatusDisplay from '$lib/components/QueueStatusDisplay.svelte';
     import { downloads } from '$lib/stores/downloads';
     import JSZip from 'jszip';
-    import { saveAs } from 'file-saver';
     import { toast } from '$lib/stores/toast';
+    import { onMount } from 'svelte';
+
+    let saveAs: (blob: Blob, filename: string) => void;
+
+    onMount(async () => {
+        // Dynamically import file-saver only on the client to prevent SSR issues
+        const fileSaver = await import('file-saver');
+        saveAs = fileSaver.default.saveAs || fileSaver.saveAs; // Handle CJS/ESM interop
+    });
 
     async function downloadAll() {
         try {
@@ -28,8 +36,12 @@
             }
 
             const content = await zip.generateAsync({ type: 'blob' });
-            saveAs(content, 'fitbit_export.zip');
-            toast.success('Download started!');
+            if (saveAs) {
+                saveAs(content, 'fitbit_export.zip');
+                toast.success('Download started!');
+            } else {
+                toast.error('File saver not ready, please wait a moment and try again.');
+            }
         } catch (e: any) {
             console.error('Failed to create zip file', e);
             toast.error(`Failed to create zip: ${e.message}`);
