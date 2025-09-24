@@ -162,18 +162,8 @@ function createDownloadsStore() {
             await db.saveTasks(get({ subscribe }));
         } finally {
             isProcessing = false;
-
-            // Proactive rate limiting delay
-            const rateLimitState = get(ratelimit);
-            const now = Date.now();
-            const timeToReset = rateLimitState.resetAt > now ? rateLimitState.resetAt - now : 3600 * 1000;
-            const remaining = rateLimitState.remaining > 0 ? rateLimitState.remaining : 1;
-
-            // Evenly space out remaining requests, with a minimum delay of 1s
-            const dynamicDelay = Math.max(1000, timeToReset / remaining);
-
-            console.log(`Next task in ${dynamicDelay / 1000}s`);
-            setTimeout(processQueue, dynamicDelay);
+            // Immediately try to process the next item
+            setTimeout(processQueue, 0);
         }
     }
 
@@ -197,9 +187,6 @@ function createDownloadsStore() {
 
                 let completedCount = 0, failedCount = 0, emptyCount = 0;
                 for (const activity of activities) {
-                    const delay = new Promise(r => setTimeout(r, get(api.ratelimit).remaining > 1 ? 1000 : (get(api.ratelimit).resetAt - Date.now()) / (get(api.ratelimit).remaining + 1)));
-                    await delay;
-
                     const file = await api.downloadTcxFile(activity, task, token);
                     if (file) {
                         await db.addFile(file);
@@ -251,7 +238,9 @@ function createDownloadsStore() {
                 completedFiles: 0,
                 failedFiles: 0,
                 emptyFiles: 0,
-                retries: task.status === 'failed' ? t.retries + 1 : t.retries
+                retries: task.status === 'failed' ? t.retries + 1 : t.retries,
+                activeTime: 0,
+                lastStartTime: null
             } : t);
         });
         await db.saveTasks(get({ subscribe }));

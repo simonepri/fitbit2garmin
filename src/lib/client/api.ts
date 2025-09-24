@@ -2,7 +2,6 @@ import type { FitbitToken, DataType, StoredFile, DownloadTask } from '$lib/types
 import { writable } from 'svelte/store';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
 
 // --- Rate Limiter Store (kept internally in this module) ---
 export interface RateLimitState {
@@ -32,9 +31,20 @@ function updateRateLimitFromHeaders(headers: Headers) {
     }
 }
 
+import { get } from 'svelte/store';
+
 // --- API Fetcher ---
 
 async function fetchProxy(path: string, token: FitbitToken, options: RequestInit = {}): Promise<Response> {
+    // Proactive rate limiting delay
+    const rateLimitState = get(ratelimit);
+    const now = Date.now();
+    const timeToReset = rateLimitState.resetAt > now ? rateLimitState.resetAt - now : 3600 * 1000;
+    const remaining = rateLimitState.remaining > 1 ? rateLimitState.remaining -1 : 1; // -1 to be safe
+    const dynamicDelay = Math.max(1000, timeToReset / remaining);
+
+    await new Promise(r => setTimeout(r, dynamicDelay));
+
     const authHeader = `Bearer ${token.access_token}`;
     const response = await fetch(`/api/fitbit-proxy/${path}`, {
         ...options,
@@ -128,25 +138,3 @@ export const dataProcessors: { [key in DataType]: (task: DownloadTask, token: Fi
         return [];
     }
 };
-
-// --- Zip Generation ---
-export async function generateZip(tasks: DownloadTask[], getFilesForTask: (taskId: string) => Promise<StoredFile[]>) {
-    const zip = new JSZip();
-    const tasksToDownload = tasks.filter(t => t.status === 'completed' && t.completedFiles > 0);
-
-    if (tasksToDownload.length === 0) {
-        throw new Error('No completed tasks with files to download.');
-    }
-
-    for (const task of tasksToDownload) {
-        const files = await getFilesForTask(task.id);
-        for (const file of files) {
-            const extension = file.type === 'tcx' ? 'tcx' : 'csv';
-            const path = `${task.year}-${String(task.month).padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
-            zip.file(path, file.content);
-        }
-    }
-
-    const content = await zip.generateAsync({ type: 'blob' });
-    saveAs(content, 'fitbit_export.zip');
-}
