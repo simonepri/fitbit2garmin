@@ -3,48 +3,19 @@
     import DownloadsTable from '$lib/components/DownloadsTable.svelte';
     import DownloadStats from '$lib/components/DownloadStats.svelte';
     import { downloads, stats } from '$lib/stores/downloads';
-    import JSZip from 'jszip';
-    import { toast } from '$lib/stores/toast';
     import { onMount } from 'svelte';
 
     let saveAs: (blob: Blob, filename: string) => void;
 
     onMount(async () => {
-        // Dynamically import file-saver only on the client to prevent SSR issues
         const fileSaver = await import('file-saver');
-        saveAs = fileSaver.default.saveAs || fileSaver.saveAs; // Handle CJS/ESM interop
+        saveAs = fileSaver.saveAs;
     });
 
-    async function downloadAll() {
-        try {
-            toast.info('Preparing zip file...');
-            const zip = new JSZip();
-            const tasksToDownload = $downloads.filter(t => t.status === 'completed' && t.completedFiles > 0);
-
-            if (tasksToDownload.length === 0) {
-                toast.error('No completed tasks with files to download.');
-                return;
-            }
-
-            for (const task of tasksToDownload) {
-                const files = await downloads.getFilesForTask(task.id);
-                for (const file of files) {
-                    const extension = file.type === 'tcx' ? 'tcx' : 'csv';
-                    const path = `${task.year}-${String(task.month).padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
-                    zip.file(path, file.content);
-                }
-            }
-
-            const content = await zip.generateAsync({ type: 'blob' });
-            if (saveAs) {
-                saveAs(content, 'fitbit_export.zip');
-                toast.success('Download started!');
-            } else {
-                toast.error('File saver not ready, please wait a moment and try again.');
-            }
-        } catch (e: any) {
-            console.error('Failed to create zip file', e);
-            toast.error(`Failed to create zip: ${e.message}`);
+    async function handleDownloadClick() {
+        const blob = await downloads.downloadAllCompleted();
+        if (blob && saveAs) {
+            saveAs(blob, 'fitbit_export.zip');
         }
     }
 </script>
@@ -66,7 +37,7 @@
             </button>
             {/if}
             {#if $stats.completed > 0}
-            <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded cursor-pointer">
+            <button on:click={handleDownloadClick} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded cursor-pointer">
                 Download Completed
             </button>
             {/if}

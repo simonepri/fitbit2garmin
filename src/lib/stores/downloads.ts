@@ -234,6 +234,42 @@ function createDownloadsStore() {
         }
     }
 
+    async function downloadAllCompleted(): Promise<Blob | null> {
+        if (!browser) return null;
+
+        const JSZip = (await import('jszip')).default;
+        const { toast } = await import('./toast');
+
+        try {
+            toast.info('Preparing zip file...');
+            const zip = new JSZip();
+            const tasks = get({ subscribe });
+            const tasksToDownload = tasks.filter(t => t.status === 'completed' && t.completedFiles > 0);
+
+            if (tasksToDownload.length === 0) {
+                toast.error('No completed tasks with files to download.');
+                return null;
+            }
+
+            for (const task of tasksToDownload) {
+                const files = await db.getFilesForTask(task.id);
+                for (const file of files) {
+                    const extension = file.type === 'tcx' ? 'tcx' : 'csv';
+                    const path = `${task.year}-${String(task.month).padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
+                    zip.file(path, file.content);
+                }
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            toast.success('Zip file created!');
+            return content;
+        } catch (e: any) {
+            console.error('Failed to create zip file', e);
+            toast.error(`Failed to create zip: ${e.message}`);
+            return null;
+        }
+    }
+
 	return {
 		subscribe,
         set, // Exposed for testing
@@ -243,7 +279,8 @@ function createDownloadsStore() {
         retryTask,
         retryAllFailedTasks,
         clearAll,
-        getFilesForTask: db.getFilesForTask.bind(db)
+        getFilesForTask: db.getFilesForTask.bind(db),
+        downloadAllCompleted
 	};
 }
 
