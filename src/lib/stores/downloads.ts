@@ -25,27 +25,37 @@ function sortTasks(tasks: DownloadTask[]): DownloadTask[] {
 
 function createDownloadsStore() {
 	const { subscribe, update, set } = writable<DownloadTask[]>([]);
+    let activeTimer: any = null;
+
+    const stopActiveTimer = () => {
+        if (activeTimer) {
+            clearInterval(activeTimer);
+            activeTimer = null;
+        }
+    };
+
+    const startActiveTimer = () => {
+        stopActiveTimer(); // Ensure no duplicates
+        activeTimer = setInterval(() => {
+            update(tasks => {
+                const runningTask = tasks.find(t => t.status === 'downloading');
+                if (!runningTask) {
+                    stopActiveTimer();
+                    return tasks;
+                }
+                return tasks.map(t => t.id === runningTask.id ? { ...t, activeTime: t.activeTime + 1000 } : t);
+            });
+        }, 1000);
+    };
 
 	async function initialize() {
 		if (browser) {
 			const tasks = await db.loadTasks();
-			// On load, handle tasks that were in progress
-			const sanitizedTasks = tasks.map(t => {
-                if (t.status === 'downloading') {
-                    const now = Date.now();
-                    const lastStart = t.lastStartTime || now;
-                    const elapsedSinceLastStart = now - lastStart;
-                    return {
-                        ...t,
-                        status: 'pending' as TaskStatus,
-                        activeTime: t.activeTime + elapsedSinceLastStart,
-                        lastStartTime: null
-                    };
-                }
-                return t;
-            });
+			// On load, reset any "downloading" tasks to "pending"
+			const sanitizedTasks = tasks.map(t =>
+                t.status === 'downloading' ? { ...t, status: 'pending' as TaskStatus } : t
+            );
 			set(sanitizedTasks);
-            // After initializing, immediately try to process the queue
             processQueue();
 		}
 	}
@@ -114,6 +124,7 @@ function createDownloadsStore() {
 
         const nextTask = findNextTask();
         if (!nextTask) {
+            stopActiveTimer();
             return;
         }
 
@@ -127,13 +138,13 @@ function createDownloadsStore() {
             await db.saveTasks(get({ subscribe }));
         } finally {
             isProcessing = false;
-            // Immediately try to process the next item
             setTimeout(processQueue, 0);
         }
     }
 
     async function processTask(task: DownloadTask) {
-        update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading', lastStartTime: Date.now() } : t));
+        update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading' } : t));
+        startActiveTimer();
         await db.saveTasks(get({ subscribe }));
 
         const token = get(auth);
@@ -185,13 +196,7 @@ function createDownloadsStore() {
             console.error(`Error processing task ${task.id}:`, error);
             update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed', failedFiles: t.totalFiles || 1 } : t));
         } finally {
-            // Finalize active time calculation
-            update(tasks => tasks.map(t => {
-                if (t.id === task.id && t.lastStartTime) {
-                    return { ...t, activeTime: t.activeTime + (Date.now() - t.lastStartTime), lastStartTime: null };
-                }
-                return t;
-            }));
+            stopActiveTimer();
             await db.saveTasks(get({ subscribe }));
         }
     }
@@ -209,8 +214,7 @@ function createDownloadsStore() {
                 failedFiles: 0,
                 emptyFiles: 0,
                 retries: task.status === 'failed' ? t.retries + 1 : t.retries,
-                activeTime: 0,
-                lastStartTime: null
+                activeTime: 0
             } : t);
         });
         await db.saveTasks(get({ subscribe }));

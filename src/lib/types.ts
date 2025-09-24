@@ -24,7 +24,6 @@ export interface DownloadTask {
     emptyFiles: number;
 	retries: number;
     activeTime: number; // in ms
-    lastStartTime: number | null;
 }
 
 export interface StoredFile {
