@@ -43,11 +43,19 @@
 		"vite": "^7.0.4",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vitest": "^3.2.3",
-		"vitest-browser-svelte": "^0.1.0"
+		"vitest-browser-svelte": "^0.1.0",
+		"@types/file-saver": "^2.0.7",
+		"@types/jszip": "^3.4.1"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"esbuild"
 		]
+	},
+	"dependencies": {
+		"date-fns": "^4.1.0",
+		"dexie": "^4.2.0",
+		"file-saver": "^2.0.5",
+		"jszip": "^3.10.1"
 	}
 }
