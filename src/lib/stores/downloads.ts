@@ -216,7 +216,6 @@ function createDownloadsStore() {
     async function clearAll() {
         if (browser) {
             await db.clearAllData();
-            api.ratelimit.set({ limit: 150, remaining: 150, resetAt: Date.now() + 3600 * 1000 });
             set([]);
         }
     }

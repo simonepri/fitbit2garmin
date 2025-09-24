@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import type { FitbitToken } from '$lib/types';
+import { ratelimit } from '$lib/client/api';
 
 const TOKEN_STORAGE_KEY = 'fitbit_token';
 
@@ -39,6 +40,9 @@ function createAuthStore() {
 
 	function logout() {
 		setToken(null);
+        if (browser) {
+            ratelimit.set({ limit: 150, remaining: 150, resetAt: Date.now() + 3600 * 1000 });
+        }
 	}
 
 	return {
