@@ -1,10 +1,10 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import type { DownloadTask } from '$lib/types';
 
     export let task: DownloadTask;
 
-    let displayTime = 'N/A';
+    let displayTime = '0.0s';
     let interval: any;
 
     function formatDuration(ms: number): string {
@@ -13,25 +13,44 @@
     }
 
     function updateDisplayTime() {
-        if (task.status === 'downloading' && task.startTime) {
-            displayTime = formatDuration(Date.now() - task.startTime);
-        } else if ((task.status === 'completed' || task.status === 'failed') && task.startTime && task.endTime) {
-            displayTime = formatDuration(task.endTime - task.startTime);
-            if (interval) clearInterval(interval);
+        if (task.status === 'downloading' && task.lastStartTime) {
+            const elapsed = task.activeTime + (Date.now() - task.lastStartTime);
+            displayTime = formatDuration(elapsed);
+        } else if (task.activeTime > 0) {
+            displayTime = formatDuration(task.activeTime);
         } else {
-            displayTime = 'N/A';
-            if (interval) clearInterval(interval);
+            displayTime = '0.0s';
+        }
+    }
+
+    function startTimer() {
+        if (task.status === 'downloading' && !interval) {
+            interval = setInterval(updateDisplayTime, 100);
+        }
+    }
+
+    function stopTimer() {
+        if (interval) {
+            clearInterval(interval);
+            interval = null;
         }
     }
 
     onMount(() => {
-        if (task.status === 'downloading') {
-            interval = setInterval(updateDisplayTime, 100);
-        }
-        return () => clearInterval(interval);
+        startTimer();
     });
 
-    $: task.status, updateDisplayTime();
+    onDestroy(() => {
+        stopTimer();
+    });
+
+    $: if (task.status !== 'downloading') {
+        stopTimer();
+    } else {
+        startTimer();
+    }
+    $: task.status, task.activeTime, task.lastStartTime, updateDisplayTime();
+
 </script>
 
 <span>{displayTime}</span>

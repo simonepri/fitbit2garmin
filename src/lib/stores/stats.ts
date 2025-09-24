@@ -29,14 +29,15 @@ export const stats = derived(
     ([$downloads, $queueStartTime, $queueEndTime]) => {
         const completed = $downloads.filter(t => t.status === 'completed').length;
         const failed = $downloads.filter(t => t.status === 'failed').length;
-        const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading').length;
+        const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading' || t.status === 'waiting').length;
         const isDownloading = $downloads.some(t => t.status === 'downloading');
+        const isWaiting = $downloads.some(t => t.status === 'waiting');
         const total = $downloads.length;
 
         let status: QueueStats['status'] = 'IDLE';
         if (isDownloading) {
             status = 'DOWNLOADING';
-        } else if (pending > 0 && get(ratelimit).remaining === 0) {
+        } else if (isWaiting) {
             status = 'PAUSED';
         } else if (pending === 0 && total > 0) {
             status = 'FINISHED';

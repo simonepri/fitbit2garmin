@@ -45,11 +45,21 @@ function createDownloadsStore() {
 	async function initialize() {
 		if (browser) {
 			const tasks = await db.loadTasks();
-			// On load, reset any "downloading" tasks to "pending"
-			// so they can be picked up again.
-			const sanitizedTasks = tasks.map(t =>
-                t.status === 'downloading' ? { ...t, status: 'pending' as TaskStatus } : t
-            );
+			// On load, handle tasks that were in progress
+			const sanitizedTasks = tasks.map(t => {
+                if (t.status === 'downloading') {
+                    const now = Date.now();
+                    const lastStart = t.lastStartTime || now;
+                    const elapsedSinceLastStart = now - lastStart;
+                    return {
+                        ...t,
+                        status: 'pending' as TaskStatus,
+                        activeTime: t.activeTime + elapsedSinceLastStart,
+                        lastStartTime: null
+                    };
+                }
+                return t;
+            });
 			set(sanitizedTasks);
             // After initializing, immediately try to process the queue
             processQueue();
@@ -84,7 +94,9 @@ function createDownloadsStore() {
 						completedFiles: 0,
 						failedFiles: 0,
                         emptyFiles: 0,
-                        retries: 0
+                        retries: 0,
+                        activeTime: 0,
+                        lastStartTime: null
 					});
 				}
 			}
@@ -116,11 +128,23 @@ function createDownloadsStore() {
     async function processQueue() {
         if (!browser || isProcessing) return;
 
+        // Reset any 'waiting' tasks back to 'pending' before we start
+        update(tasks => tasks.map(t => t.status === 'waiting' ? {...t, status: 'pending'} : t));
+
         const nextTask = findNextTask();
         if (!nextTask) {
             if (get(queueStartTime) !== null && get(queueEndTime) === null) {
                 queueEndTime.set(Date.now());
             }
+            return;
+        }
+
+        const rateLimitState = get(ratelimit);
+        const now = Date.now();
+        if (rateLimitState.remaining === 0 && now < rateLimitState.resetAt) {
+            const delay = rateLimitState.resetAt - now;
+            update(tasks => tasks.map(t => t.id === nextTask.id ? {...t, status: 'waiting'} : t));
+            setTimeout(processQueue, delay);
             return;
         }
 
@@ -154,7 +178,7 @@ function createDownloadsStore() {
     }
 
     async function processTask(task: DownloadTask) {
-        update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading', startTime: Date.now() } : t));
+        update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading', lastStartTime: Date.now() } : t));
         await db.saveTasks(get({ subscribe }));
 
         const token = get(auth);
@@ -162,20 +186,17 @@ function createDownloadsStore() {
 
         try {
             if (task.type === 'tcx') {
-                // TCX tasks are special: we get a list of files and download them one by one
                 const activities = await api.getTcxActivities(task, token);
                 update(tasks => tasks.map(t => t.id === task.id ? {...t, totalFiles: activities.length} : t));
                 await db.saveTasks(get({subscribe}));
 
                 if (activities.length === 0) {
-                    // No files to download, task is complete but empty
-                    update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'completed', endTime: Date.now() } : t));
+                    update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'completed' } : t));
                     return;
                 }
 
                 let completedCount = 0, failedCount = 0, emptyCount = 0;
                 for (const activity of activities) {
-                    // Proactive delay before each TCX file download
                     const delay = new Promise(r => setTimeout(r, get(api.ratelimit).remaining > 1 ? 1000 : (get(api.ratelimit).resetAt - Date.now()) / (get(api.ratelimit).remaining + 1)));
                     await delay;
 
@@ -190,7 +211,6 @@ function createDownloadsStore() {
                     await db.saveTasks(get({subscribe}));
                 }
             } else {
-                // Weight and Activity tasks are processed in one go
                 const files = await api.dataProcessors[task.type](task, token);
                 if (files.length > 0) {
                     for (const file of files) await db.addFile(file);
@@ -200,15 +220,21 @@ function createDownloadsStore() {
                 }
             }
 
-            // Finalize task status
             const finalTaskState = get({subscribe}).find(t => t.id === task.id);
             const finalStatus = finalTaskState?.failedFiles ?? 0 > 0 ? 'failed' : 'completed';
-            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: finalStatus, endTime: Date.now() } : t));
+            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: finalStatus } : t));
 
         } catch (error) {
             console.error(`Error processing task ${task.id}:`, error);
-            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed', endTime: Date.now() } : t));
+            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed' } : t));
         } finally {
+            // Finalize active time calculation
+            update(tasks => tasks.map(t => {
+                if (t.id === task.id && t.lastStartTime) {
+                    return { ...t, activeTime: t.activeTime + (Date.now() - t.lastStartTime), lastStartTime: null };
+                }
+                return t;
+            }));
             await db.saveTasks(get({ subscribe }));
         }
     }
