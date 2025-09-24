@@ -152,12 +152,17 @@ function createDownloadsStore() {
 
                 let completedCount = 0, failedCount = 0, emptyCount = 0;
                 for (const activity of activities) {
-                    const file = await api.downloadTcxFile(activity, task, token);
-                    if (file) {
-                        await db.addFile(file);
-                        completedCount++;
-                    } else {
-                        emptyCount++;
+                    try {
+                        const file = await api.downloadTcxFile(activity, task, token);
+                        if (file) {
+                            await db.addFile(file);
+                            completedCount++;
+                        } else {
+                            emptyCount++;
+                        }
+                    } catch (e) {
+                        console.error(`Failed to download TCX for logId ${activity.logId}`, e);
+                        failedCount++;
                     }
                     update(tasks => tasks.map(t => t.id === task.id ? {...t, completedFiles: completedCount, failedFiles: failedCount, emptyFiles: emptyCount } : t));
                     await db.saveTasks(get({subscribe}));
@@ -178,7 +183,7 @@ function createDownloadsStore() {
 
         } catch (error) {
             console.error(`Error processing task ${task.id}:`, error);
-            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed' } : t));
+            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed', failedFiles: t.totalFiles || 1 } : t));
         } finally {
             // Finalize active time calculation
             update(tasks => tasks.map(t => {
