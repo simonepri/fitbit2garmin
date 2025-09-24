@@ -4,21 +4,11 @@
     import { formatDuration } from '$lib/utils';
     import { onMount } from 'svelte';
 
-    let timeUntilReset = '';
     let liveElapsed = formatDuration($stats.elapsed);
     let interval: any;
 
     function updateTimers() {
-        if ($stats.status === 'PAUSED') {
-            const now = Date.now();
-            const resetAt = $ratelimit.resetAt;
-            const diff = resetAt - now;
-            timeUntilReset = diff > 0 ? `(resumes in ~${formatDuration(diff)})` : '';
-        } else {
-            timeUntilReset = '';
-        }
-
-        if ($stats.status === 'DOWNLOADING' || $stats.status === 'PAUSED') {
+        if ($stats.status === 'DOWNLOADING') {
             const runningTask = $downloads.find(t => t.status === 'downloading');
             const runningTime = runningTask && runningTask.lastStartTime ? Date.now() - runningTask.lastStartTime : 0;
             liveElapsed = formatDuration($stats.elapsed + runningTime);
@@ -32,14 +22,13 @@
         return () => clearInterval(interval);
     });
 
-    $: if ($ratelimit || $stats) {
+    $: if ($stats) {
         updateTimers();
     }
 
     const statusText = {
         IDLE: 'Idle',
         DOWNLOADING: 'Downloading...',
-        PAUSED: 'Paused (Quota)',
         FINISHED: 'Finished'
     }
 
@@ -69,7 +58,7 @@
         <div class="border-l border-gray-400 h-6 mx-4 hidden sm:block"></div>
         <div>
             <strong>API Quota:</strong>
-            <span class="font-mono ml-1">{$ratelimit.remaining} / {$ratelimit.limit} {timeUntilReset}</span>
+            <span class="font-mono ml-1">{$ratelimit.remaining} / {$ratelimit.limit}</span>
         </div>
     </div>
 </div>
