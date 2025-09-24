@@ -4,7 +4,6 @@ import { db } from '$lib/db';
 import type { DownloadTask, DataType, TaskStatus, FitbitToken, StoredFile } from '$lib/types';
 import { eachMonthOfInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { auth } from './auth';
-import { ratelimit } from '$lib/client/api';
 
 // --- ETA Stores ---
 const QUEUE_START_TIME_KEY = 'queue_start_time';
@@ -128,23 +127,11 @@ function createDownloadsStore() {
     async function processQueue() {
         if (!browser || isProcessing) return;
 
-        // Reset any 'waiting' tasks back to 'pending' before we start
-        update(tasks => tasks.map(t => t.status === 'waiting' ? {...t, status: 'pending'} : t));
-
         const nextTask = findNextTask();
         if (!nextTask) {
             if (get(queueStartTime) !== null && get(queueEndTime) === null) {
                 queueEndTime.set(Date.now());
             }
-            return;
-        }
-
-        const rateLimitState = get(ratelimit);
-        const now = Date.now();
-        if (rateLimitState.remaining === 0 && now < rateLimitState.resetAt) {
-            const delay = rateLimitState.resetAt - now;
-            update(tasks => tasks.map(t => t.id === nextTask.id ? {...t, status: 'waiting'} : t));
-            setTimeout(processQueue, delay);
             return;
         }
 

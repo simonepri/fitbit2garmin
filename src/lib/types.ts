@@ -10,7 +10,7 @@ export interface FitbitToken {
 
 export type DataType = 'weight' | 'activity' | 'tcx';
 
-export type TaskStatus = 'pending' | 'downloading' | 'completed' | 'failed' | 'waiting';
+export type TaskStatus = 'pending' | 'downloading' | 'completed' | 'failed';
 
 export interface DownloadTask {
 	id: string; // e.g., "weight-2023-01"
