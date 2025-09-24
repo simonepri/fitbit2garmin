@@ -5,21 +5,6 @@ import type { DownloadTask, DataType, TaskStatus, FitbitToken, StoredFile } from
 import { eachMonthOfInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { auth } from './auth';
 
-// --- ETA Stores ---
-const QUEUE_START_TIME_KEY = 'queue_start_time';
-const QUEUE_END_TIME_KEY = 'queue_end_time';
-
-const initialStartTime = browser ? Number(localStorage.getItem(QUEUE_START_TIME_KEY) || '0') : 0;
-export const queueStartTime = writable<number | null>(initialStartTime > 0 ? initialStartTime : null);
-queueStartTime.subscribe(value => {
-    if (browser) localStorage.setItem(QUEUE_START_TIME_KEY, String(value || '0'));
-});
-
-const initialEndTime = browser ? Number(localStorage.getItem(QUEUE_END_TIME_KEY) || '0') : 0;
-export const queueEndTime = writable<number | null>(initialEndTime > 0 ? initialEndTime : null);
-queueEndTime.subscribe(value => {
-    if (browser) localStorage.setItem(QUEUE_END_TIME_KEY, String(value || '0'));
-});
 
 import * as api from '$lib/client/api';
 
@@ -129,17 +114,10 @@ function createDownloadsStore() {
 
         const nextTask = findNextTask();
         if (!nextTask) {
-            if (get(queueStartTime) !== null && get(queueEndTime) === null) {
-                queueEndTime.set(Date.now());
-            }
             return;
         }
 
         isProcessing = true;
-
-        if (get(queueStartTime) === null) {
-            queueStartTime.set(Date.now());
-        }
 
         try {
             await processTask(nextTask);
@@ -238,8 +216,6 @@ function createDownloadsStore() {
     async function clearAll() {
         if (browser) {
             await db.clearAllData();
-            queueStartTime.set(null);
-            queueEndTime.set(null);
             api.ratelimit.set({ limit: 150, remaining: 150, resetAt: Date.now() + 3600 * 1000 });
             set([]);
         }

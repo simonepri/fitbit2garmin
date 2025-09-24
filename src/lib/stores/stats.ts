@@ -1,5 +1,5 @@
 import { derived, get } from 'svelte/store';
-import { downloads, queueStartTime, queueEndTime } from './downloads';
+import { downloads } from './downloads';
 import { ratelimit } from '$lib/client/api';
 
 export interface QueueStats {
@@ -11,7 +11,7 @@ export interface QueueStats {
     elapsed: string;
 }
 
-function formatDuration(ms: number): string {
+export function formatDuration(ms: number): string {
     if (ms <= 0) return '0s';
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -25,8 +25,8 @@ function formatDuration(ms: number): string {
 }
 
 export const stats = derived(
-    [downloads, queueStartTime, queueEndTime],
-    ([$downloads, $queueStartTime, $queueEndTime]) => {
+    downloads,
+    ($downloads) => {
         const completed = $downloads.filter(t => t.status === 'completed').length;
         const failed = $downloads.filter(t => t.status === 'failed').length;
         const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading' || t.status === 'waiting').length;
@@ -43,17 +43,10 @@ export const stats = derived(
             status = 'FINISHED';
         }
 
-        let elapsed = '0s';
-        if ($queueStartTime) {
-            if (status === 'FINISHED' && $queueEndTime) {
-                elapsed = formatDuration($queueEndTime - $queueStartTime);
-            } else if (status !== 'FINISHED') {
-                elapsed = formatDuration(Date.now() - $queueStartTime);
-            } else if (status === 'FINISHED' && !$queueEndTime) {
-                // If finished but no end time, use start time to show total duration
-                elapsed = formatDuration(0);
-            }
-        }
+        const totalActiveTime = $downloads.reduce((acc, task) => {
+            return acc + task.activeTime;
+        }, 0);
+        const elapsed = formatDuration(totalActiveTime);
 
         return {
             completed,

@@ -1,25 +1,12 @@
 <script lang="ts">
-    import { stats } from '$lib/stores/stats';
+    import { stats, formatDuration } from '$lib/stores/stats';
     import { ratelimit } from '$lib/client/api';
-    import { queueStartTime } from '$lib/stores/downloads';
+    import { downloads } from '$lib/stores/downloads';
     import { onMount } from 'svelte';
 
     let timeUntilReset = '';
-    let liveElapsed = '0s';
+    let liveElapsed = $stats.elapsed;
     let interval: any;
-
-    function formatDuration(ms: number): string {
-        if (ms <= 0) return '0s';
-        const totalSeconds = Math.floor(ms / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        const parts = [];
-        if (hours > 0) parts.push(`${hours}h`);
-        if (minutes > 0) parts.push(`${minutes}m`);
-        if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
-        return parts.join(' ');
-    }
 
     function updateTimers() {
         // Update "resumes in" timer
@@ -33,8 +20,19 @@
         }
 
         // Update live elapsed timer
-        if ($queueStartTime && $stats.status !== 'FINISHED') {
-            liveElapsed = formatDuration(Date.now() - $queueStartTime);
+        if ($stats.status === 'DOWNLOADING' || $stats.status === 'PAUSED') {
+            // This is a bit of a hack, but it works. We find the running task and add its live runtime to the total.
+            const runningTask = $downloads.find(t => t.status === 'downloading');
+            const totalFinishedTime = $downloads
+                .filter(t => t.status !== 'downloading')
+                .reduce((acc, t) => acc + t.activeTime, 0);
+
+            const runningTime = runningTask && runningTask.lastStartTime
+                ? Date.now() - runningTask.lastStartTime
+                : 0;
+
+            liveElapsed = formatDuration(totalFinishedTime + runningTime);
+
         } else {
             liveElapsed = $stats.elapsed;
         }
@@ -45,7 +43,7 @@
         return () => clearInterval(interval);
     });
 
-    $: if ($ratelimit || $stats || $queueStartTime) {
+    $: if ($ratelimit || $stats) {
         updateTimers();
     }
 
