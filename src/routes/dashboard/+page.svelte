@@ -1,7 +1,7 @@
 <script lang="ts">
     import DownloadTasksForm from '$lib/components/DownloadTasksForm.svelte';
     import DownloadsTable from '$lib/components/DownloadsTable.svelte';
-    import RateLimitDisplay from '$lib/components/RateLimitDisplay.svelte';
+    import QueueStatusDisplay from '$lib/components/QueueStatusDisplay.svelte';
     import { downloads } from '$lib/stores/downloads';
     import JSZip from 'jszip';
     import { saveAs } from 'file-saver';
@@ -40,11 +40,13 @@
 <div class="space-y-8">
     <DownloadTasksForm />
 
-    <div class="flex justify-between items-center">
-        <RateLimitDisplay />
-        <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
-            Download All Completed as .zip
-        </button>
+    <div class="grid grid-cols-2 gap-8 items-center">
+        <QueueStatusDisplay />
+        <div class="flex justify-end">
+            <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+                Download All Completed as .zip
+            </button>
+        </div>
     </div>
 
     <DownloadsTable />

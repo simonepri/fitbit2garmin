@@ -6,6 +6,17 @@ import { eachMonthOfInterval, startOfMonth, endOfMonth, format } from 'date-fns'
 import { auth } from './auth';
 import { ratelimit } from './ratelimit';
 
+// --- ETA Stores ---
+export const downloadDurations = writable<number[]>([]);
+
+function addDownloadDuration(duration: number) {
+    downloadDurations.update(durations => {
+        const newDurations = [duration, ...durations];
+        if (newDurations.length > 20) newDurations.pop();
+        return newDurations;
+    });
+}
+
 // --- Client-side Fetch to Proxy ---
 
 async function fetchProxy(path: string, token: FitbitToken, options: RequestInit = {}): Promise<Response> {
@@ -151,6 +162,7 @@ function createDownloadsStore() {
         update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading' } : t));
         await db.saveTasks(get({ subscribe }));
 
+        const startTime = Date.now();
         const token = get(auth);
         if (!token) throw new Error('Not authenticated');
 
@@ -177,8 +189,11 @@ function createDownloadsStore() {
         } catch (error) {
             console.error(`Error processing task ${task.id}:`, error);
             update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed' } : t));
+        } finally {
+            const duration = Date.now() - startTime;
+            addDownloadDuration(duration);
+            await db.saveTasks(get({ subscribe }));
         }
-        await db.saveTasks(get({ subscribe }));
     }
 
     async function processWeightTask(task: DownloadTask, token: FitbitToken, start: string, end: string) {
