@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { downloads } from '$lib/stores/downloads';
+	import { sortedDownloads } from '$lib/stores/downloads';
 	import DownloadsTableRow from './DownloadsTableRow.svelte';
 </script>
 
 <div class="mt-8 flow-root">
 	<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
 		<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            {#if $downloads.length > 0}
+            {#if $sortedDownloads.length > 0}
 			<table class="min-w-full divide-y divide-gray-300">
 				<thead>
 					<tr>
@@ -31,7 +31,7 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-gray-200">
-					{#each $downloads as task (task.id)}
+					{#each $sortedDownloads as task (task.id)}
 						<DownloadsTableRow {task} />
 					{/each}
 				</tbody>

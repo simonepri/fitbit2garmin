@@ -1,4 +1,4 @@
-import { writable, get } from 'svelte/store';
+import { writable, get, derived } from 'svelte/store';
 import { browser } from '$app/environment';
 import { db } from '$lib/db';
 import type { DownloadTask, DataType, TaskStatus, FitbitToken, StoredFile } from '$lib/types';
@@ -44,6 +44,18 @@ async function fetchProxy(path: string, token: FitbitToken, options: RequestInit
 
 
 // --- Store ---
+
+const typeSortOrder = { weight: 0, activity: 1, tcx: 2 };
+
+function sortTasks(tasks: DownloadTask[]): DownloadTask[] {
+    return tasks.sort((a, b) => {
+        const aDate = new Date(a.year, a.month - 1);
+        const bDate = new Date(b.year, b.month - 1);
+        if (aDate < bDate) return -1;
+        if (aDate > bDate) return 1;
+        return typeSortOrder[a.type] - typeSortOrder[b.type];
+    });
+}
 
 function createDownloadsStore() {
 	const { subscribe, update, set } = writable<DownloadTask[]>([]);
@@ -115,10 +127,9 @@ function createDownloadsStore() {
         const pending = tasks.filter(t => t.status === 'pending');
         if (pending.length === 0) return undefined;
 
-        // Priority: weight > activity > tcx
-        return pending.find(t => t.type === 'weight')
-            || pending.find(t => t.type === 'activity')
-            || pending.find(t => t.type === 'tcx');
+        // Sort pending tasks by date then type to find the next one
+        const sortedPending = sortTasks(pending);
+        return sortedPending[0];
     }
 
     let isProcessing = false;
@@ -313,15 +324,29 @@ function createDownloadsStore() {
         }
     }
 
+    async function retryAllFailedTasks() {
+        const tasksToRetry = get({ subscribe }).filter(t => t.status === 'failed');
+        if (tasksToRetry.length === 0) return;
+
+        for (const task of tasksToRetry) {
+            await retryTask(task.id);
+        }
+    }
+
 	return {
 		subscribe,
         set, // Exposed for testing
 		initialize,
 		addTasks,
         retryTask,
+        retryAllFailedTasks,
         clearAll,
         getFilesForTask: db.getFilesForTask.bind(db)
 	};
 }
 
 export const downloads = createDownloadsStore();
+
+export const sortedDownloads = derived(downloads, ($downloads) => {
+    return sortTasks([...$downloads]);
+});

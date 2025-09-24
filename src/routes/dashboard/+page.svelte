@@ -54,9 +54,12 @@
 
     <div class="grid grid-cols-2 gap-8 items-center">
         <QueueStatusDisplay />
-        <div class="flex justify-end">
+        <div class="flex justify-end space-x-4">
+            <button on:click={() => downloads.retryAllFailedTasks()} class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
+                Retry Failed
+            </button>
             <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
-                Download All Completed as .zip
+                Download Completed
             </button>
         </div>
     </div>
