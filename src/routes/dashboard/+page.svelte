@@ -2,8 +2,7 @@
     import DownloadTasksForm from '$lib/components/DownloadTasksForm.svelte';
     import DownloadsTable from '$lib/components/DownloadsTable.svelte';
     import QueueStatusDisplay from '$lib/components/QueueStatusDisplay.svelte';
-    import { downloads } from '$lib/stores/downloads';
-    import { stats } from '$lib/stores/stats';
+    import { downloads, stats } from '$lib/stores/downloads';
     import JSZip from 'jszip';
     import { toast } from '$lib/stores/toast';
     import { onMount } from 'svelte';

@@ -1,16 +1,12 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import type { DownloadTask } from '$lib/types';
+    import { formatDuration } from '$lib/utils';
 
     export let task: DownloadTask;
 
     let displayTime = '0.0s';
     let interval: any;
-
-    function formatDuration(ms: number): string {
-        if (ms <= 0) return '0.0s';
-        return `${(ms / 1000).toFixed(1)}s`;
-    }
 
     function updateDisplayTime() {
         if (task.status === 'downloading' && task.lastStartTime) {

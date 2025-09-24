@@ -247,3 +247,36 @@ export const downloads = createDownloadsStore();
 export const sortedDownloads = derived(downloads, ($downloads) => {
     return sortTasks([...$downloads]);
 });
+
+export const stats = derived(
+    downloads,
+    ($downloads) => {
+        const completed = $downloads.filter(t => t.status === 'completed').length;
+        const failed = $downloads.filter(t => t.status === 'failed').length;
+        const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading').length;
+        const isDownloading = $downloads.some(t => t.status === 'downloading');
+        const total = $downloads.length;
+
+        let status: 'IDLE' | 'DOWNLOADING' | 'PAUSED' | 'FINISHED' = 'IDLE';
+        if (isDownloading) {
+            status = 'DOWNLOADING';
+        } else if (pending > 0 && get(api.ratelimit).remaining === 0) {
+            status = 'PAUSED';
+        } else if (pending === 0 && total > 0) {
+            status = 'FINISHED';
+        }
+
+        const totalActiveTime = $downloads.reduce((acc, task) => {
+            return acc + task.activeTime;
+        }, 0);
+
+        return {
+            completed,
+            failed,
+            pending,
+            total,
+            status,
+            elapsed: totalActiveTime // The raw ms value
+        };
+    }
+);

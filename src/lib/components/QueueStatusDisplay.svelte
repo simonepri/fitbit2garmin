@@ -1,15 +1,14 @@
 <script lang="ts">
-    import { stats, formatDuration } from '$lib/stores/stats';
+    import { stats, downloads } from '$lib/stores/downloads';
     import { ratelimit } from '$lib/client/api';
-    import { downloads } from '$lib/stores/downloads';
+    import { formatDuration } from '$lib/utils';
     import { onMount } from 'svelte';
 
     let timeUntilReset = '';
-    let liveElapsed = $stats.elapsed;
+    let liveElapsed = formatDuration($stats.elapsed);
     let interval: any;
 
     function updateTimers() {
-        // Update "resumes in" timer
         if ($stats.status === 'PAUSED') {
             const now = Date.now();
             const resetAt = $ratelimit.resetAt;
@@ -19,22 +18,12 @@
             timeUntilReset = '';
         }
 
-        // Update live elapsed timer
         if ($stats.status === 'DOWNLOADING' || $stats.status === 'PAUSED') {
-            // This is a bit of a hack, but it works. We find the running task and add its live runtime to the total.
             const runningTask = $downloads.find(t => t.status === 'downloading');
-            const totalFinishedTime = $downloads
-                .filter(t => t.status !== 'downloading')
-                .reduce((acc, t) => acc + t.activeTime, 0);
-
-            const runningTime = runningTask && runningTask.lastStartTime
-                ? Date.now() - runningTask.lastStartTime
-                : 0;
-
-            liveElapsed = formatDuration(totalFinishedTime + runningTime);
-
+            const runningTime = runningTask && runningTask.lastStartTime ? Date.now() - runningTask.lastStartTime : 0;
+            liveElapsed = formatDuration($stats.elapsed + runningTime);
         } else {
-            liveElapsed = $stats.elapsed;
+            liveElapsed = formatDuration($stats.elapsed);
         }
     }
 
