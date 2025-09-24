@@ -213,8 +213,7 @@ function createDownloadsStore() {
                 completedFiles: 0,
                 failedFiles: 0,
                 emptyFiles: 0,
-                retries: task.status === 'failed' ? t.retries + 1 : t.retries,
-                activeTime: 0
+                retries: task.status === 'failed' ? t.retries + 1 : t.retries
             } : t);
         });
         await db.saveTasks(get({ subscribe }));
