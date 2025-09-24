@@ -12,7 +12,7 @@ export interface QueueStats {
     remaining: string;
 }
 
-const averageDurations = derived(downloadDurations, ($durations) => {
+export const averageDurations = derived(downloadDurations, ($durations) => {
     const avgs: { [key in DataType]?: number } = {};
     for (const type in $durations) {
         const durations = $durations[type as DataType] || [];

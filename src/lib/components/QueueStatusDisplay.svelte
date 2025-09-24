@@ -59,12 +59,18 @@
 </script>
 
 <div class="p-2 bg-gray-200 text-gray-700 rounded-md text-sm">
-    <div class="flex justify-around items-center">
+    <div class="flex flex-wrap justify-around items-center gap-x-4 gap-y-1">
         <div>
             <strong>Status:</strong>
-            <span class="font-mono ml-1">{statusText[$stats.status]} {timeUntilReset}</span>
+            <span class="font-mono ml-1">{statusText[$stats.status]}</span>
         </div>
-        <div class="border-l border-gray-400 h-6 mx-4"></div>
+        <div class="border-l border-gray-400 h-6 mx-4 hidden sm:block"></div>
+        <div>
+            <strong>API Quota:</strong>
+            <span class="font-mono ml-1">{$ratelimit.remaining} / {$ratelimit.limit}</span>
+            <span class="text-gray-500 ml-2">{timeUntilReset}</span>
+        </div>
+        <div class="border-l border-gray-400 h-6 mx-4 hidden sm:block"></div>
         <div>
             <strong>Queue:</strong>
             <span class="font-mono ml-1">

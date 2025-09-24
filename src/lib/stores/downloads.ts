@@ -7,7 +7,13 @@ import { auth } from './auth';
 import { ratelimit } from './ratelimit';
 
 // --- ETA Stores ---
-export const downloadDurations = writable<{ [key in DataType]?: number[] }>({});
+const DURATIONS_KEY = 'download_durations';
+const initialDurations = browser ? JSON.parse(localStorage.getItem(DURATIONS_KEY) || '{}') : {};
+export const downloadDurations = writable<{ [key in DataType]?: number[] }>(initialDurations);
+downloadDurations.subscribe(value => {
+    if (browser) localStorage.setItem(DURATIONS_KEY, JSON.stringify(value));
+});
+
 const QUEUE_START_TIME_KEY = 'queue_start_time';
 const QUEUE_END_TIME_KEY = 'queue_end_time';
 
@@ -298,6 +304,17 @@ function createDownloadsStore() {
         let emptyCount = 0;
 
         for (const activity of activities) {
+            const delayPromise = new Promise(resolve => {
+                const rateLimitState = get(ratelimit);
+                const now = Date.now();
+                const timeToReset = rateLimitState.resetAt > now ? rateLimitState.resetAt - now : 3600 * 1000;
+                const remaining = rateLimitState.remaining > 0 ? rateLimitState.remaining : 1;
+                const dynamicDelay = Math.max(1000, timeToReset / remaining);
+                setTimeout(resolve, dynamicDelay);
+            });
+
+            await delayPromise;
+
             try {
                 const fileId = `${task.year}-${String(task.month).padStart(2, '0')}-tcx-${activity.logId}`;
                 const existingFile = await db.files.get(fileId);
@@ -350,6 +367,7 @@ function createDownloadsStore() {
             await db.clearAllData();
             queueStartTime.set(null);
             queueEndTime.set(null);
+            downloadDurations.set({});
             set([]);
         }
     }

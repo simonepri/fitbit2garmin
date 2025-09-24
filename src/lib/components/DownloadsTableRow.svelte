@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { DownloadTask } from '$lib/types';
 	import { downloads } from '$lib/stores/downloads';
+    import { averageDurations } from '$lib/stores/stats';
 
 	export let task: DownloadTask;
 
@@ -34,7 +35,7 @@
 	</td>
 	<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
         {#if task.status === 'downloading' || task.status === 'completed' || task.status === 'failed'}
-            <span>{task.completedFiles} / {task.totalFiles} completed</span>
+            <span>{task.completedFiles} / {task.totalFiles}</span>
 
             {@const details = []}
             {#if task.failedFiles > 0}
@@ -51,9 +52,16 @@
             -
         {/if}
     </td>
+    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+        {#if $averageDurations[task.type]}
+            {($averageDurations[task.type] / 1000).toFixed(2)}s
+        {:else}
+            N/A
+        {/if}
+    </td>
 	<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
 		{#if task.status === 'failed' || task.status === 'completed'}
-			<button on:click={handleRetry} class="text-indigo-600 hover:text-indigo-900">
+			<button on:click={handleRetry} class="text-indigo-600 hover:text-indigo-900 cursor-pointer">
                 {task.status === 'failed' ? 'Retry' : 'Refresh'}
             </button>
 		{/if}
