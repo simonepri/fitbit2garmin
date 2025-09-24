@@ -41,14 +41,9 @@ function createAuthStore() {
 		setToken(null);
 	}
 
-    function updateToken(token: FitbitToken) {
-        setToken(token);
-    }
-
 	return {
 		subscribe,
 		set: setToken,
-        updateToken,
 		logout
 	};
 }

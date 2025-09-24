@@ -11,6 +11,7 @@ vi.mock('$lib/db', () => ({
 		saveTasks: vi.fn().mockResolvedValue(undefined),
         deleteFilesForTask: vi.fn().mockResolvedValue(undefined),
         addFile: vi.fn().mockResolvedValue(undefined),
+        getFilesForTask: vi.fn().mockResolvedValue([]),
         files: {
             get: vi.fn().mockResolvedValue(null)
         }

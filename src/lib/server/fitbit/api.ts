@@ -1,4 +1,3 @@
-import { RateLimiter } from '$lib/server/ratelimiter';
 import { error } from '@sveltejs/kit';
 import { add, format, isAfter } from 'date-fns';
 
@@ -7,9 +6,6 @@ const API_BASE_URL = 'https://api.fitbit.com';
 const API_OAUTH2_BASE_URL = 'https://www.fitbit.com/oauth2';
 const API_VERSION = 1;
 const API_DATE_FORMAT = 'yyyy-MM-dd';
-
-// Shared rate limiter instance
-const apiRateLimiter = new RateLimiter();
 
 import type { FitbitToken } from '$lib/types';
 
@@ -177,8 +173,6 @@ export async function apiCall<T>(
         token = newToken;
     }
 
-    await apiRateLimiter.acquire();
-
     const headers = getAuthorizationHeaders(token.access_token);
     if (options.headers) {
         (Object.entries(options.headers) as [string, string][]).forEach(([key, value]) => {
@@ -187,8 +181,6 @@ export async function apiCall<T>(
     }
 
     const response = await fetch(url, { ...options, headers });
-
-    apiRateLimiter.updateFromHeaders(response.headers);
 
     if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));

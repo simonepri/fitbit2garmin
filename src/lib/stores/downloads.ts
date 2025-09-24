@@ -4,24 +4,24 @@ import { db } from '$lib/db';
 import type { DownloadTask, DataType, TaskStatus, FitbitToken, StoredFile } from '$lib/types';
 import { eachMonthOfInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { auth } from './auth';
+import { ratelimit } from './ratelimit';
 
 // --- Client-side Fetch to Proxy ---
 
 async function fetchProxy(path: string, token: FitbitToken, options: RequestInit = {}): Promise<Response> {
+    // The proxy now passes through the Authorization header directly
+    const authHeader = `Bearer ${token.access_token}`;
+
     const response = await fetch(`/api/fitbit-proxy/${path}`, {
         ...options,
         headers: {
             ...options.headers,
-            Authorization: `Bearer ${JSON.stringify(token)}`
+            Authorization: authHeader
         }
     });
 
-    if (response.headers.has('X-Refreshed-Token')) {
-        const refreshedTokenStr = response.headers.get('X-Refreshed-Token');
-        if (refreshedTokenStr) {
-            auth.updateToken(JSON.parse(refreshedTokenStr));
-        }
-    }
+    // Update rate limit store from response headers
+    ratelimit.updateFromHeaders(response.headers);
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
@@ -111,8 +111,22 @@ function createDownloadsStore() {
     }
 
     let isProcessing = false;
+    let queueTimeout: any = null;
+
     async function processQueue() {
         if (!browser || isProcessing) return;
+
+        clearTimeout(queueTimeout);
+
+        const rateLimitState = get(ratelimit);
+        const now = Date.now();
+
+        if (rateLimitState.remaining === 0 && now < rateLimitState.resetAt) {
+            const delay = rateLimitState.resetAt - now;
+            console.log(`Rate limit hit. Pausing queue for ${delay / 1000}s`);
+            queueTimeout = setTimeout(processQueue, delay);
+            return;
+        }
 
         const nextTask = findNextTask();
         if (!nextTask) return; // No tasks to process
@@ -291,7 +305,7 @@ function createDownloadsStore() {
 		addTasks,
         retryTask,
         clearAll,
-        getFilesForTask: db.getFilesForTask
+        getFilesForTask: db.getFilesForTask.bind(db)
 	};
 }
 
