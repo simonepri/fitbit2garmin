@@ -28,8 +28,7 @@
 
     const statusText = {
         IDLE: 'Idle',
-        DOWNLOADING: 'Downloading...',
-        FINISHED: 'Finished'
+        DOWNLOADING: 'Downloading...'
     }
 
 </script>

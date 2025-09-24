@@ -257,11 +257,9 @@ export const stats = derived(
         const isDownloading = $downloads.some(t => t.status === 'downloading');
         const total = $downloads.length;
 
-        let status: 'IDLE' | 'DOWNLOADING' | 'FINISHED' = 'IDLE';
+        let status: 'IDLE' | 'DOWNLOADING' = 'IDLE';
         if (isDownloading) {
             status = 'DOWNLOADING';
-        } else if (pending === 0 && total > 0) {
-            status = 'FINISHED';
         }
 
         const totalActiveTime = $downloads.reduce((acc, task) => {
