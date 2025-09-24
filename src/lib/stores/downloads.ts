@@ -254,11 +254,11 @@ export const stats = derived(
         const completed = $downloads.filter(t => t.status === 'completed').length;
         const failed = $downloads.filter(t => t.status === 'failed').length;
         const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading').length;
-        const isDownloading = $downloads.some(t => t.status === 'downloading');
+        const isDownloading = $downloads.some(t => t.status === 'downloading' || t.status === 'pending');
         const total = $downloads.length;
 
         let status: 'IDLE' | 'DOWNLOADING' = 'IDLE';
-        if (isDownloading) {
+        if (isDownloading || pending > 0) {
             status = 'DOWNLOADING';
         }
 
