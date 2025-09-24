@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { DownloadTask } from '$lib/types';
 	import { downloads } from '$lib/stores/downloads';
-    import { averageDurations } from '$lib/stores/stats';
+    import TaskTimer from './TaskTimer.svelte';
 
 	export let task: DownloadTask;
 
@@ -53,11 +53,7 @@
         {/if}
     </td>
     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-        {#if $averageDurations[task.type]}
-            {($averageDurations[task.type] / 1000).toFixed(2)}s
-        {:else}
-            N/A
-        {/if}
+        <TaskTimer {task} />
     </td>
 	<td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
 		{#if task.status === 'failed' || task.status === 'completed'}

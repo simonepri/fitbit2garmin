@@ -66,12 +66,6 @@
         </div>
         <div class="border-l border-gray-400 h-6 mx-4 hidden sm:block"></div>
         <div>
-            <strong>API Quota:</strong>
-            <span class="font-mono ml-1">{$ratelimit.remaining} / {$ratelimit.limit}</span>
-            <span class="text-gray-500 ml-2">{timeUntilReset}</span>
-        </div>
-        <div class="border-l border-gray-400 h-6 mx-4 hidden sm:block"></div>
-        <div>
             <strong>Queue:</strong>
             <span class="font-mono ml-1">
                 <span class="text-green-600">{$stats.completed}</span> /
@@ -82,10 +76,13 @@
         </div>
         <div class="border-l border-gray-400 h-6 mx-4"></div>
         <div>
-            <strong>Time:</strong>
-            <span class="font-mono ml-1">
-                Elapsed: {liveElapsed} ({$stats.remaining || 'N/A'} remaining)
-            </span>
+            <strong>Elapsed:</strong>
+            <span class="font-mono ml-1">{liveElapsed}</span>
+        </div>
+        <div class="border-l border-gray-400 h-6 mx-4 hidden sm:block"></div>
+        <div>
+            <strong>API Quota:</strong>
+            <span class="font-mono ml-1">{$ratelimit.remaining} / {$ratelimit.limit} {timeUntilReset}</span>
         </div>
     </div>
 </div>

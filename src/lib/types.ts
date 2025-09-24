@@ -23,6 +23,8 @@ export interface DownloadTask {
 	failedFiles: number;
     emptyFiles: number;
 	retries: number;
+    startTime?: number;
+    endTime?: number;
 }
 
 export interface StoredFile {

@@ -7,13 +7,6 @@ import { auth } from './auth';
 import { ratelimit } from './ratelimit';
 
 // --- ETA Stores ---
-const DURATIONS_KEY = 'download_durations';
-const initialDurations = browser ? JSON.parse(localStorage.getItem(DURATIONS_KEY) || '{}') : {};
-export const downloadDurations = writable<{ [key in DataType]?: number[] }>(initialDurations);
-downloadDurations.subscribe(value => {
-    if (browser) localStorage.setItem(DURATIONS_KEY, JSON.stringify(value));
-});
-
 const QUEUE_START_TIME_KEY = 'queue_start_time';
 const QUEUE_END_TIME_KEY = 'queue_end_time';
 
@@ -28,15 +21,6 @@ export const queueEndTime = writable<number | null>(initialEndTime > 0 ? initial
 queueEndTime.subscribe(value => {
     if (browser) localStorage.setItem(QUEUE_END_TIME_KEY, String(value || '0'));
 });
-
-function addDownloadDuration(duration: number, type: DataType) {
-    downloadDurations.update(durations => {
-        const typeDurations = durations[type] || [];
-        const newDurations = [duration, ...typeDurations];
-        if (newDurations.length > 20) newDurations.pop();
-        return { ...durations, [type]: newDurations };
-    });
-}
 
 // --- Client-side Fetch to Proxy ---
 
@@ -200,10 +184,9 @@ function createDownloadsStore() {
     }
 
     async function processTask(task: DownloadTask) {
-        update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading' } : t));
+        update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'downloading', startTime: Date.now() } : t));
         await db.saveTasks(get({ subscribe }));
 
-        const startTime = Date.now();
         const token = get(auth);
         if (!token) throw new Error('Not authenticated');
 
@@ -226,13 +209,11 @@ function createDownloadsStore() {
             }
             // If any files failed, the whole task is failed, otherwise completed
             const finalStatus = get({subscribe}).find(t => t.id === task.id)?.failedFiles ?? 0 > 0 ? 'failed' : 'completed';
-            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: finalStatus } : t));
+            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: finalStatus, endTime: Date.now() } : t));
         } catch (error) {
             console.error(`Error processing task ${task.id}:`, error);
-            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed' } : t));
+            update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed', endTime: Date.now() } : t));
         } finally {
-            const duration = Date.now() - startTime;
-            addDownloadDuration(duration, task.type);
             await db.saveTasks(get({ subscribe }));
         }
     }
