@@ -66,8 +66,10 @@
         </div>
         <div class="border-l border-gray-400 h-6 mx-4"></div>
         <div>
-            <strong>ETA:</strong>
-            <span class="font-mono ml-1">{$stats.eta || 'N/A'}</span>
+            <strong>Time:</strong>
+            <span class="font-mono ml-1">
+                Elapsed: {$stats.elapsed} ({$stats.remaining || 'N/A'} remaining)
+            </span>
         </div>
     </div>
 </div>

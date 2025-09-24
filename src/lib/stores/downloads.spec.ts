@@ -37,7 +37,20 @@ vi.mock('./auth', async () => {
 	};
 });
 
-vi.stubGlobal('fetch', vi.fn());
+function createMockFetch(response: any, ok = true) {
+    return vi.fn().mockResolvedValue({
+        ok,
+        json: () => Promise.resolve(response),
+        headers: new Headers({
+            'fitbit-rate-limit-limit': '150',
+			'fitbit-rate-limit-remaining': '149',
+			'fitbit-rate-limit-reset': '3600'
+        })
+    });
+}
+
+vi.stubGlobal('fetch', createMockFetch({ activities: [] }));
+
 
 describe('Downloads Store', () => {
     beforeEach(() => {
@@ -48,21 +61,27 @@ describe('Downloads Store', () => {
         set([]);
     });
 
-    it('should add new tasks and ignore duplicates', () => {
-        const initialTasks = get(downloads);
-        expect(initialTasks.length).toBe(0);
+    it('should add new tasks and ignore duplicates', async () => {
+        vi.stubGlobal('fetch', createMockFetch({ activities: [] }));
 
-        const addedCount = downloads.addTasks(new Date('2023-01-01'), new Date('2023-02-15'), ['weight', 'tcx']);
-        expect(addedCount).toBe(4); // 2 months * 2 types
+        return new Promise(async (resolve) => {
+            const unsubscribe = downloads.subscribe(tasks => {
+                if (tasks.length === 4) {
+                    expect(tasks.find(t => t.id === 'weight-2023-1')).toBeDefined();
 
-        const tasks = get(downloads);
-        expect(tasks.length).toBe(4);
-        expect(tasks.find(t => t.id === 'weight-2023-1')).toBeDefined();
+                    // Try to add again, expect no change
+                    const addedCount2 = downloads.addTasks(new Date('2023-01-01'), new Date('2023-01-15'), ['weight']);
+                    expect(addedCount2).toBe(0);
+                    expect(get(downloads).length).toBe(4);
 
-        // Try to add again
-        const addedCount2 = downloads.addTasks(new Date('2023-01-01'), new Date('2023-01-15'), ['weight']);
-        expect(addedCount2).toBe(0);
-        expect(get(downloads).length).toBe(4);
+                    unsubscribe();
+                    resolve();
+                }
+            });
+
+            const addedCount = downloads.addTasks(new Date('2023-01-01'), new Date('2023-02-15'), ['weight', 'tcx']);
+            expect(addedCount).toBe(4);
+        });
     });
 
     it('should initialize from DB and sanitize downloading tasks', async () => {
@@ -90,16 +109,26 @@ describe('Downloads Store', () => {
     });
 
     it('should retry a failed task', async () => {
-        downloads.addTasks(new Date('2023-01-01'), new Date('2023-01-15'), ['weight']);
-        const task = get(downloads)[0];
-        task.status = 'failed';
-        task.retries = 1;
+        const failedTask = {
+            id: 'weight-2023-1',
+            type: 'weight',
+            year: 2023,
+            month: 1,
+            status: 'failed',
+            totalFiles: 0,
+            completedFiles: 0,
+            failedFiles: 0,
+            retries: 1
+        };
+        downloads.set([failedTask]);
 
-        await downloads.retryTask(task.id);
+        await downloads.retryTask('weight-2023-1');
 
-        const retriedTask = get(downloads).find(t => t.id === task.id);
-        expect(retriedTask?.status).toBe('pending');
+        const tasks = get(downloads);
+        const retriedTask = tasks.find(t => t.id === 'weight-2023-1');
+
+        expect(retriedTask?.status).toBe('downloading');
         expect(retriedTask?.retries).toBe(2);
-        expect(db.deleteFilesForTask).toHaveBeenCalledWith(task.id);
+        expect(db.deleteFilesForTask).toHaveBeenCalledWith('weight-2023-1');
     });
 });

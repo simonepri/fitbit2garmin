@@ -1,5 +1,5 @@
 import { derived } from 'svelte/store';
-import { downloads, downloadDurations } from './downloads';
+import { downloads, downloadDurations, queueStartTime } from './downloads';
 import { ratelimit } from './ratelimit';
 
 export interface QueueStats {
@@ -8,7 +8,8 @@ export interface QueueStats {
     pending: number;
     total: number;
     status: 'IDLE' | 'DOWNLOADING' | 'PAUSED' | 'FINISHED';
-    eta: string;
+    elapsed: string;
+    remaining: string;
 }
 
 const movingAverage = derived(downloadDurations, ($durations) => {
@@ -17,9 +18,22 @@ const movingAverage = derived(downloadDurations, ($durations) => {
     return sum / $durations.length;
 });
 
+function formatDuration(ms: number): string {
+    if (ms <= 0) return '0s';
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+    return parts.join(' ');
+}
+
 export const stats = derived(
-    [downloads, ratelimit, movingAverage],
-    ([$downloads, $ratelimit, $movingAverage]) => {
+    [downloads, ratelimit, movingAverage, queueStartTime],
+    ([$downloads, $ratelimit, $movingAverage, $queueStartTime]) => {
         const completed = $downloads.filter(t => t.status === 'completed').length;
         const failed = $downloads.filter(t => t.status === 'failed').length;
         const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading').length;
@@ -35,24 +49,16 @@ export const stats = derived(
             status = 'FINISHED';
         }
 
-        let eta = '';
+        const elapsed = $queueStartTime ? formatDuration(Date.now() - $queueStartTime) : '0s';
+
+        let remaining = '';
         if (pending > 0 && $movingAverage > 0) {
             const timeForTasks = pending * $movingAverage;
             const now = Date.now();
             const timeForRateLimit = now < $ratelimit.resetAt && $ratelimit.remaining === 0
                 ? $ratelimit.resetAt - now
                 : 0;
-
-            const totalSeconds = Math.floor((timeForTasks + timeForRateLimit) / 1000);
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-
-            const parts = [];
-            if (hours > 0) parts.push(`${hours}h`);
-            if (minutes > 0) parts.push(`${minutes}m`);
-            if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
-            eta = `~${parts.join(' ')}`;
+            remaining = `~${formatDuration(timeForTasks + timeForRateLimit)}`;
         }
 
         return {
@@ -61,7 +67,8 @@ export const stats = derived(
             pending,
             total,
             status,
-            eta
+            elapsed,
+            remaining
         };
     }
 );

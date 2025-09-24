@@ -18,9 +18,7 @@
     const taskDate = `${monthNames[task.month - 1]} ${task.year}`;
 
     function handleRetry() {
-        if (confirm(`Are you sure you want to re-download all data for this task? Existing files for this task will be deleted.`)) {
-            downloads.retryTask(task.id);
-        }
+        downloads.retryTask(task.id);
     }
 </script>
 

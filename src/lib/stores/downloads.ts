@@ -8,6 +8,7 @@ import { ratelimit } from './ratelimit';
 
 // --- ETA Stores ---
 export const downloadDurations = writable<number[]>([]);
+export const queueStartTime = writable<number | null>(null);
 
 function addDownloadDuration(duration: number) {
     downloadDurations.update(durations => {
@@ -108,12 +109,10 @@ function createDownloadsStore() {
 		}
 
 		if (newTasks.length > 0) {
-			update((currentTasks) => {
-                const updated = [...currentTasks, ...newTasks];
-                // Persist asynchronously
-                db.saveTasks(updated);
-                return updated;
-            });
+            const updatedTasks = [...get({ subscribe }), ...newTasks];
+			updateAndPersist(updatedTasks);
+            // After adding tasks, run the pre-flight check for TCX tasks
+            preFlightTcxTasks(newTasks.filter(t => t.type === 'tcx'));
 		}
 
         // Trigger queue processing in case it was idle
@@ -121,6 +120,30 @@ function createDownloadsStore() {
 
 		return newTasks.length;
 	}
+
+    async function preFlightTcxTasks(tcxTasks: DownloadTask[]) {
+        const token = get(auth);
+        if (!token || tcxTasks.length === 0) return;
+
+        for (const task of tcxTasks) {
+            try {
+                const start = startOfMonth(new Date(task.year, task.month - 1));
+                const end = endOfMonth(start);
+                const startStr = format(start, 'yyyy-MM-dd');
+
+                const res = await fetchProxy(`1/user/-/activities/list.json?afterDate=${startStr}&sort=asc&limit=100&offset=0`, token);
+                const data = await res.json();
+                const activities = data.activities.filter((a: any) => new Date(a.originalStartTime) <= end && a.logType !== 'auto_detected' && a.tcxLink);
+
+                update(tasks => tasks.map(t => t.id === task.id ? {...t, totalFiles: activities.length} : t));
+                await db.saveTasks(get({ subscribe }));
+
+            } catch (e) {
+                console.error(`Failed pre-flight for task ${task.id}`, e);
+                // We could optionally mark the task as failed here
+            }
+        }
+    }
 
     function findNextTask(): DownloadTask | undefined {
         const tasks = get({ subscribe });
@@ -151,7 +174,18 @@ function createDownloadsStore() {
         }
 
         const nextTask = findNextTask();
-        if (!nextTask) return; // No tasks to process
+        if (!nextTask) {
+            // Queue is finished
+            if (get(queueStartTime) !== null) {
+                queueStartTime.set(null);
+            }
+            return;
+        }
+
+        // Set start time if this is the first task run
+        if (get(queueStartTime) === null) {
+            queueStartTime.set(Date.now());
+        }
 
         isProcessing = true;
 
@@ -336,6 +370,7 @@ function createDownloadsStore() {
 	return {
 		subscribe,
         set, // Exposed for testing
+        update, // Exposed for testing
 		initialize,
 		addTasks,
         retryTask,
