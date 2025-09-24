@@ -9,14 +9,18 @@ import { ratelimit } from './ratelimit';
 // --- ETA Stores ---
 export const downloadDurations = writable<{ [key in DataType]?: number[] }>({});
 const QUEUE_START_TIME_KEY = 'queue_start_time';
+const QUEUE_END_TIME_KEY = 'queue_end_time';
 
 const initialStartTime = browser ? Number(localStorage.getItem(QUEUE_START_TIME_KEY) || '0') : 0;
 export const queueStartTime = writable<number | null>(initialStartTime > 0 ? initialStartTime : null);
-
 queueStartTime.subscribe(value => {
-    if (browser) {
-        localStorage.setItem(QUEUE_START_TIME_KEY, String(value || '0'));
-    }
+    if (browser) localStorage.setItem(QUEUE_START_TIME_KEY, String(value || '0'));
+});
+
+const initialEndTime = browser ? Number(localStorage.getItem(QUEUE_END_TIME_KEY) || '0') : 0;
+export const queueEndTime = writable<number | null>(initialEndTime > 0 ? initialEndTime : null);
+queueEndTime.subscribe(value => {
+    if (browser) localStorage.setItem(QUEUE_END_TIME_KEY, String(value || '0'));
 });
 
 function addDownloadDuration(duration: number, type: DataType) {
@@ -44,6 +48,13 @@ async function fetchProxy(path: string, token: FitbitToken, options: RequestInit
 
     // Update rate limit store from response headers
     ratelimit.updateFromHeaders(response.headers);
+
+    if (response.status === 429) {
+        // If we get a 429, manually set remaining to 0 to pause the queue.
+        // The resetAt time will be correctly set by updateFromHeaders.
+        ratelimit.update(r => ({ ...r, remaining: 0 }));
+        throw new Error('Too Many Requests');
+    }
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
@@ -122,8 +133,6 @@ function createDownloadsStore() {
 		if (newTasks.length > 0) {
             const updatedTasks = [...get({ subscribe }), ...newTasks];
 			updateAndPersist(updatedTasks);
-            // After adding tasks, run the pre-flight check for TCX tasks
-            preFlightTcxTasks(newTasks.filter(t => t.type === 'tcx'));
 		}
 
         // Trigger queue processing in case it was idle
@@ -131,30 +140,6 @@ function createDownloadsStore() {
 
 		return newTasks.length;
 	}
-
-    async function preFlightTcxTasks(tcxTasks: DownloadTask[]) {
-        const token = get(auth);
-        if (!token || tcxTasks.length === 0) return;
-
-        for (const task of tcxTasks) {
-            try {
-                const start = startOfMonth(new Date(task.year, task.month - 1));
-                const end = endOfMonth(start);
-                const startStr = format(start, 'yyyy-MM-dd');
-
-                const res = await fetchProxy(`1/user/-/activities/list.json?afterDate=${startStr}&sort=asc&limit=100&offset=0`, token);
-                const data = await res.json();
-                const activities = data.activities.filter((a: any) => new Date(a.originalStartTime) <= end && a.logType !== 'auto_detected' && a.tcxLink);
-
-                update(tasks => tasks.map(t => t.id === task.id ? {...t, totalFiles: activities.length} : t));
-                await db.saveTasks(get({ subscribe }));
-
-            } catch (e) {
-                console.error(`Failed pre-flight for task ${task.id}`, e);
-                // We could optionally mark the task as failed here
-            }
-        }
-    }
 
     function findNextTask(): DownloadTask | undefined {
         const tasks = get({ subscribe });
@@ -186,9 +171,9 @@ function createDownloadsStore() {
 
         const nextTask = findNextTask();
         if (!nextTask) {
-            // Queue is finished
-            if (get(queueStartTime) !== null) {
-                queueStartTime.set(null);
+            // Queue is finished, set end time if it hasn't been set
+            if (get(queueStartTime) !== null && get(queueEndTime) === null) {
+                queueEndTime.set(Date.now());
             }
             return;
         }
@@ -320,7 +305,8 @@ function createDownloadsStore() {
 
         for (const activity of activities) {
             try {
-                const existingFile = await db.files.get(`tcx-${activity.logId}`);
+                const fileId = `${task.year}-${String(task.month).padStart(2, '0')}-tcx-${activity.logId}`;
+                const existingFile = await db.files.get(fileId);
                 if (existingFile) {
                     completedCount++;
                     continue;
@@ -328,11 +314,10 @@ function createDownloadsStore() {
                 const tcxRes = await fetchProxy(`1/user/-/activities/${activity.logId}.tcx`, token);
                 const tcxContent = await tcxRes.arrayBuffer();
 
-                // Mirroring python logic: if file is very small, it's considered empty.
                 if (tcxContent.byteLength < 250) {
                     emptyCount++;
                 } else {
-                    const file: StoredFile = { id: `tcx-${activity.logId}`, taskId: task.id, type: 'tcx', content: new Blob([tcxContent]), timestamp: Date.now() };
+                    const file: StoredFile = { id: fileId, taskId: task.id, type: 'tcx', content: new Blob([tcxContent]), timestamp: Date.now() };
                     await db.addFile(file);
                     completedCount++;
                 }
@@ -369,7 +354,8 @@ function createDownloadsStore() {
     async function clearAll() {
         if (browser) {
             await db.clearAllData();
-            queueStartTime.set(null); // This will also clear localStorage
+            queueStartTime.set(null);
+            queueEndTime.set(null);
             set([]);
         }
     }

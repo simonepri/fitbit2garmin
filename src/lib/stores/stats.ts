@@ -1,5 +1,5 @@
 import { derived } from 'svelte/store';
-import { downloads, downloadDurations, queueStartTime } from './downloads';
+import { downloads, downloadDurations, queueStartTime, queueEndTime } from './downloads';
 import { ratelimit } from './ratelimit';
 
 export interface QueueStats {
@@ -38,8 +38,8 @@ function formatDuration(ms: number): string {
 }
 
 export const stats = derived(
-    [downloads, ratelimit, averageDurations, queueStartTime],
-    ([$downloads, $ratelimit, $averageDurations, $queueStartTime]) => {
+    [downloads, ratelimit, averageDurations, queueStartTime, queueEndTime],
+    ([$downloads, $ratelimit, $averageDurations, $queueStartTime, $queueEndTime]) => {
         const completed = $downloads.filter(t => t.status === 'completed').length;
         const failed = $downloads.filter(t => t.status === 'failed').length;
         const pendingTasks = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading');
@@ -56,7 +56,14 @@ export const stats = derived(
             status = 'FINISHED';
         }
 
-        const elapsed = ($queueStartTime && status !== 'FINISHED') ? formatDuration(Date.now() - $queueStartTime) : ($queueStartTime ? formatDuration(0) : '0s');
+        let elapsed = '0s';
+        if ($queueStartTime) {
+            if (status === 'FINISHED' && $queueEndTime) {
+                elapsed = formatDuration($queueEndTime - $queueStartTime);
+            } else if (status !== 'FINISHED') {
+                elapsed = formatDuration(Date.now() - $queueStartTime);
+            }
+        }
 
         let remaining = '';
         if (pending > 0) {

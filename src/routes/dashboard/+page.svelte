@@ -31,8 +31,7 @@
                 const files = await downloads.getFilesForTask(task.id);
                 for (const file of files) {
                     const extension = file.type === 'tcx' ? 'tcx' : 'csv';
-                    // New path structure: <year>-<month>/<filename>
-                    const path = `${task.year}-${task.month.toString().padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
+                    const path = `${task.year}-${String(task.month).padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
                     zip.file(path, file.content);
                 }
             }
@@ -58,17 +57,17 @@
         <QueueStatusDisplay />
         <div class="flex flex-col sm:flex-row sm:justify-end sm:space-x-4 space-y-2 sm:space-y-0">
             {#if $stats.total > 0}
-            <button on:click={() => {if(confirm('Are you sure you want to delete all tasks and downloaded data? This cannot be undone.')) downloads.clearAll()}} class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+            <button on:click={() => {if(confirm('Are you sure you want to delete all tasks and downloaded data? This cannot be undone.')) downloads.clearAll()}} class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded cursor-pointer">
                 Delete All Data
             </button>
             {/if}
             {#if $stats.failed > 0}
-            <button on:click={() => downloads.retryAllFailedTasks()} class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
+            <button on:click={() => downloads.retryAllFailedTasks()} class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded cursor-pointer">
                 Retry Failed
             </button>
             {/if}
             {#if $stats.completed > 0}
-            <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+            <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded cursor-pointer">
                 Download Completed
             </button>
             {/if}
