@@ -1,4 +1,4 @@
-import { derived } from 'svelte/store';
+import { derived, get } from 'svelte/store';
 import { downloads, queueStartTime, queueEndTime } from './downloads';
 import { ratelimit } from './ratelimit';
 
