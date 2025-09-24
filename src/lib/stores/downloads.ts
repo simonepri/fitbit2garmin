@@ -65,7 +65,7 @@ function createDownloadsStore() {
 		set(tasks);
 	}
 
-	function addTasks(startDate: Date, endDate: Date, types: DataType[]) {
+	async function addTasks(startDate: Date, endDate: Date, types: DataType[]) {
 		const newTasks: DownloadTask[] = [];
 		const existingTasks = get({ subscribe });
 
@@ -98,7 +98,7 @@ function createDownloadsStore() {
 
 		if (newTasks.length > 0) {
             const updatedTasks = [...get({ subscribe }), ...newTasks];
-			updateAndPersist(updatedTasks);
+			await updateAndPersist(updatedTasks);
 		}
 
         // Trigger queue processing in case it was idle

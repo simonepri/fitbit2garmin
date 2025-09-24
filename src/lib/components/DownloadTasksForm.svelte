@@ -20,12 +20,12 @@
 		endDate = event.detail.end;
 	}
 
-	function handleAddToQueue() {
+	async function handleAddToQueue() {
 		if (selectedTypes.length === 0) {
 			toast.error('Please select at least one data type.');
 			return;
 		}
-		const addedCount = downloads.addTasks(startDate, endDate, selectedTypes);
+		const addedCount = await downloads.addTasks(startDate, endDate, selectedTypes);
 		if (addedCount > 0) {
 			toast.success(`${addedCount} new tasks added to the queue.`);
 		} else {

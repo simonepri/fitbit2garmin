@@ -65,82 +65,37 @@ describe('Downloads Store', () => {
     it('should add new tasks and ignore duplicates', async () => {
         vi.stubGlobal('fetch', createMockFetch({ activities: [] }));
 
-        return new Promise(async (resolve) => {
-            const unsubscribe = downloads.subscribe(tasks => {
-                if (tasks.length === 4) {
-                    expect(tasks.find(t => t.id === 'weight-2023-1')).toBeDefined();
+        const addedCount = await downloads.addTasks(new Date('2023-01-01'), new Date('2023-02-15'), ['weight', 'tcx']);
+        expect(addedCount).toBe(4);
 
-                    // Try to add again, expect no change
-                    const addedCount2 = downloads.addTasks(new Date('2023-01-01'), new Date('2023-01-15'), ['weight']);
-                    expect(addedCount2).toBe(0);
-                    expect(get(downloads).length).toBe(4);
+        // Allow store to update
+        await new Promise(r => setTimeout(r, 10));
 
-                    unsubscribe();
-                    resolve();
-                }
-            });
+        const tasks = get(downloads);
+        expect(tasks.length).toBe(4);
+        expect(tasks.find(t => t.id === 'weight-2023-1')).toBeDefined();
 
-            const addedCount = downloads.addTasks(new Date('2023-01-01'), new Date('2023-02-15'), ['weight', 'tcx']);
-            expect(addedCount).toBe(4);
-        });
+        // Try to add again
+        const addedCount2 = await downloads.addTasks(new Date('2023-01-01'), new Date('2023-01-15'), ['weight']);
+        expect(addedCount2).toBe(0);
+        expect(get(downloads).length).toBe(4);
     });
 
     it('should initialize from DB and sanitize downloading tasks', async () => {
-        return new Promise(async (resolve) => {
-            const mockTasks = [
-                { id: 'weight-2023-1', status: 'completed' },
-                { id: 'activity-2023-1', status: 'downloading' },
-                { id: 'tcx-2023-1', status: 'pending' }
-            ];
-            vi.mocked(db.loadTasks).mockResolvedValue(mockTasks as any);
+        const mockTasks = [
+            { id: 'weight-2023-1', status: 'completed' },
+            { id: 'activity-2023-1', status: 'downloading' },
+            { id: 'tcx-2023-1', status: 'pending' }
+        ];
+        vi.mocked(db.loadTasks).mockResolvedValue(mockTasks as any);
 
-            const unsubscribe = downloads.subscribe(tasks => {
-                // This will be called once on subscription with initial state,
-                // and again when the state is set by initialize().
-                if (tasks.length === 3) {
-                    expect(tasks.find(t => t.id === 'activity-2023-1')?.status).toBe('pending');
-                    expect(tasks.find(t => t.id === 'weight-2023-1')?.status).toBe('completed');
-                    unsubscribe();
-                    resolve();
-                }
-            });
+        await downloads.initialize();
 
-            await downloads.initialize();
-        });
+        // Allow store to update
+        await new Promise(r => setTimeout(r, 10));
+
+        const tasks = get(downloads);
+        expect(tasks.length).toBe(3);
+        expect(tasks.find(t => t.id === 'activity-2023-1')?.status).toBe('pending');
     });
-
-    // it('should retry a failed task', async () => {
-    //     const failedTask = {
-    //         id: 'weight-2023-1',
-    //         type: 'weight',
-    //         year: 2023,
-    //         month: 1,
-    //         status: 'failed',
-    //         totalFiles: 0,
-    //         completedFiles: 0,
-    //         failedFiles: 0,
-    //         emptyFiles: 0,
-    //         retries: 1,
-    //         activeTime: 100,
-    //         lastStartTime: null
-    //     };
-
-    //     return new Promise(async (resolve) => {
-    //         // Mock ratelimit to have plenty of quota
-    //         api.ratelimit.set({ limit: 150, remaining: 150, resetAt: Date.now() + 3600000 });
-
-    //         const unsubscribe = downloads.subscribe(tasks => {
-    //             const task = tasks.find(t => t.id === 'weight-2023-1');
-    //             if (task && task.status === 'downloading') {
-    //                 expect(task.retries).toBe(2);
-    //                 expect(db.deleteFilesForTask).toHaveBeenCalledWith('weight-2023-1');
-    //                 unsubscribe();
-    //                 resolve();
-    //             }
-    //         });
-
-    //         downloads.set([failedTask]);
-    //         await downloads.retryTask('weight-2023-1');
-    //     });
-    // });
 });
