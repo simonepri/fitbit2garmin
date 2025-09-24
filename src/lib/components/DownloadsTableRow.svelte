@@ -35,8 +35,17 @@
 	<td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
         {#if task.status === 'downloading' || task.status === 'completed' || task.status === 'failed'}
             <span>{task.completedFiles} / {task.totalFiles} completed</span>
+
+            {@const details = []}
             {#if task.failedFiles > 0}
-                <span class="text-red-500 ml-2">({task.failedFiles} failed)</span>
+                {@const _ = details.push(`${task.failedFiles} failed`)}
+            {/if}
+            {#if task.emptyFiles > 0}
+                {@const _ = details.push(`${task.emptyFiles} empty`)}
+            {/if}
+
+            {#if details.length > 0}
+                <span class="text-gray-500 ml-2">({details.join(', ')})</span>
             {/if}
         {:else}
             -

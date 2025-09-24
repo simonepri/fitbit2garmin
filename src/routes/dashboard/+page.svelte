@@ -3,6 +3,7 @@
     import DownloadsTable from '$lib/components/DownloadsTable.svelte';
     import QueueStatusDisplay from '$lib/components/QueueStatusDisplay.svelte';
     import { downloads } from '$lib/stores/downloads';
+    import { stats } from '$lib/stores/stats';
     import JSZip from 'jszip';
     import { toast } from '$lib/stores/toast';
     import { onMount } from 'svelte';
@@ -30,7 +31,8 @@
                 const files = await downloads.getFilesForTask(task.id);
                 for (const file of files) {
                     const extension = file.type === 'tcx' ? 'tcx' : 'csv';
-                    const path = `${file.type}/${task.year}-${task.month.toString().padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
+                    // New path structure: <year>-<month>/<filename>
+                    const path = `${task.year}-${task.month.toString().padStart(2, '0')}/${file.id.replace(':', '_')}.${extension}`;
                     zip.file(path, file.content);
                 }
             }
@@ -55,12 +57,16 @@
     <div class="grid grid-cols-2 gap-8 items-center">
         <QueueStatusDisplay />
         <div class="flex justify-end space-x-4">
+            {#if $stats.failed > 0}
             <button on:click={() => downloads.retryAllFailedTasks()} class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
                 Retry Failed
             </button>
+            {/if}
+            {#if $stats.completed > 0}
             <button on:click={downloadAll} class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
                 Download Completed
             </button>
+            {/if}
         </div>
     </div>
 

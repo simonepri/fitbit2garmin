@@ -47,16 +47,16 @@
 	}
 </script>
 
-<div class="flex items-center space-x-4">
+<div class="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
 	<div>
 		<label for="start-month" class="block text-sm font-medium text-gray-700">Start Date</label>
 		<div class="flex space-x-2">
-			<select id="start-month" bind:value={startMonth} on:change={() => updateDates.call('start')} class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+			<select id="start-month" bind:value={startMonth} on:change={() => updateDates.call('start')} class="mt-1 block w-36 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
 				{#each months as month}
 					<option value={month.value}>{month.name}</option>
 				{/each}
 			</select>
-			<select bind:value={startYear} on:change={() => updateDates.call('start')} class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+			<select bind:value={startYear} on:change={() => updateDates.call('start')} class="mt-1 block w-28 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
 				{#each years as year}
 					<option value={year}>{year}</option>
 				{/each}
@@ -66,12 +66,12 @@
 	<div>
 		<label for="end-month" class="block text-sm font-medium text-gray-700">End Date</label>
 		<div class="flex space-x-2">
-			<select id="end-month" bind:value={endMonth} on:change={() => updateDates.call('end')} class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+			<select id="end-month" bind:value={endMonth} on:change={() => updateDates.call('end')} class="mt-1 block w-36 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
 				{#each months as month}
 					<option value={month.value}>{month.name}</option>
 				{/each}
 			</select>
-			<select bind:value={endYear} on:change={() => updateDates.call('end')} class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+			<select bind:value={endYear} on:change={() => updateDates.call('end')} class="mt-1 block w-28 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
 				{#each years as year}
 					<option value={year}>{year}</option>
 				{/each}

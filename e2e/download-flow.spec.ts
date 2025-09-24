@@ -25,8 +25,8 @@ test.describe('Dashboard Smoke Test', () => {
 		await expect(page.getByRole('heading', { name: 'Fitbit to Garmin' })).toBeVisible();
         await expect(page.getByText('Data Types')).toBeVisible();
         await expect(page.getByRole('button', { name: 'Add to Queue' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Download Completed' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Retry Failed' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Download Completed' })).not.toBeVisible();
+        await expect(page.getByRole('button', { name: 'Retry Failed' })).not.toBeVisible();
         // The table is only visible if there are tasks, so we don't assert on it in the smoke test.
 	});
 });

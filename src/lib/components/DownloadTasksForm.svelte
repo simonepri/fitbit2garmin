@@ -34,12 +34,12 @@
 	}
 </script>
 
-<div class="p-4 border rounded-lg bg-gray-50">
-	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="p-4 rounded-lg bg-white shadow-md">
+	<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
 		<MonthYearPicker bind:start={startDate} bind:end={endDate} on:update={handleDateUpdate} />
 		<fieldset>
-			<legend class="block text-sm font-medium text-gray-700">Data Types</legend>
-			<div class="mt-2 space-y-2">
+			<legend class="block text-sm font-medium text-gray-700 mb-2">Data Types</legend>
+			<div class="flex flex-wrap gap-x-6 gap-y-2">
 				{#each dataTypes as type}
 					<div class="flex items-center">
 						<input

@@ -1,12 +1,40 @@
 <script lang="ts">
-	import { sortedDownloads } from '$lib/stores/downloads';
+	import { sortedDownloads, downloads } from '$lib/stores/downloads';
 	import DownloadsTableRow from './DownloadsTableRow.svelte';
+    import { onMount } from 'svelte';
+
+    let loading = true;
+
+    onMount(() => {
+        // The downloads store is initialized in the root layout.
+        // We just need to wait for it to be populated.
+        const unsubscribe = downloads.subscribe(value => {
+            if (value.length > 0) {
+                loading = false;
+                // unsubscribe(); // Keep listening for changes, like clearing all tasks
+            } else {
+                // This handles the case where there are truly no tasks after loading
+                loading = false;
+            }
+        });
+
+        // A timeout to prevent spinner from showing forever if DB is empty
+        setTimeout(() => {
+            if (loading) loading = false;
+        }, 1500);
+
+        return unsubscribe;
+    });
 </script>
 
 <div class="mt-8 flow-root">
 	<div class="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
 		<div class="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            {#if $sortedDownloads.length > 0}
+            {#if loading}
+                <div class="text-center py-8 text-gray-500">
+                    <p>Loading tasks from database...</p>
+                </div>
+            {:else if $sortedDownloads.length > 0}
 			<table class="min-w-full divide-y divide-gray-300">
 				<thead>
 					<tr>

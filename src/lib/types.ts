@@ -21,6 +21,7 @@ export interface DownloadTask {
 	totalFiles: number;
 	completedFiles: number;
 	failedFiles: number;
+    emptyFiles: number;
 	retries: number;
 }
 

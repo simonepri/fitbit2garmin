@@ -102,6 +102,7 @@ function createDownloadsStore() {
 						totalFiles: 0,
 						completedFiles: 0,
 						failedFiles: 0,
+                        emptyFiles: 0,
                         retries: 0
 					});
 				}
@@ -305,6 +306,7 @@ function createDownloadsStore() {
 
         let completedCount = 0;
         let failedCount = 0;
+        let emptyCount = 0;
 
         for (const activity of activities) {
             try {
@@ -315,19 +317,21 @@ function createDownloadsStore() {
                 }
                 const tcxRes = await fetchProxy(`1/user/-/activities/${activity.logId}.tcx`, token);
                 const tcxContent = await tcxRes.arrayBuffer();
-                if (tcxContent.byteLength > 200) {
+
+                // Mirroring python logic: if file is very small, it's considered empty.
+                if (tcxContent.byteLength < 250) {
+                    emptyCount++;
+                } else {
                     const file: StoredFile = { id: `tcx-${activity.logId}`, taskId: task.id, type: 'tcx', content: new Blob([tcxContent]), timestamp: Date.now() };
                     await db.addFile(file);
                     completedCount++;
-                } else {
-                    failedCount++;
                 }
             } catch (e) {
                 console.error(`Failed to download TCX for logId ${activity.logId}`, e);
                 failedCount++;
             }
             // Update UI progressively
-            update(ts => ts.map(t => t.id === task.id ? {...t, completedFiles: completedCount, failedFiles: failedCount } : t));
+            update(ts => ts.map(t => t.id === task.id ? {...t, completedFiles: completedCount, failedFiles: failedCount, emptyFiles: emptyCount } : t));
             await db.saveTasks(get({ subscribe }));
         }
     }
@@ -343,6 +347,7 @@ function createDownloadsStore() {
                 status: 'pending' as TaskStatus,
                 completedFiles: 0,
                 failedFiles: 0,
+                emptyFiles: 0,
                 retries: task.status === 'failed' ? t.retries + 1 : t.retries
             } : t);
         });
