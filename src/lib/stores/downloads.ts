@@ -152,50 +152,44 @@ function createDownloadsStore() {
     }
 
     let isProcessing = false;
-    let queueTimeout: any = null;
 
     async function processQueue() {
         if (!browser || isProcessing) return;
 
-        clearTimeout(queueTimeout);
-
-        const rateLimitState = get(ratelimit);
-        const now = Date.now();
-
-        if (rateLimitState.remaining === 0 && now < rateLimitState.resetAt) {
-            const delay = rateLimitState.resetAt - now;
-            console.log(`Rate limit hit. Pausing queue for ${delay / 1000}s`);
-            queueTimeout = setTimeout(processQueue, delay);
-            return;
-        }
-
         const nextTask = findNextTask();
         if (!nextTask) {
-            // Queue is finished, set end time if it hasn't been set
             if (get(queueStartTime) !== null && get(queueEndTime) === null) {
                 queueEndTime.set(Date.now());
             }
             return;
         }
 
-        // Set start time if this is the first task run
+        isProcessing = true;
+
         if (get(queueStartTime) === null) {
             queueStartTime.set(Date.now());
         }
-
-        isProcessing = true;
 
         try {
             await processTask(nextTask);
         } catch (e) {
             console.error(`Failed to process task ${nextTask.id}`, e);
-            // Mark task as failed on unexpected error
             update(tasks => tasks.map(t => t.id === nextTask.id ? {...t, status: 'failed'} : t));
             await db.saveTasks(get({ subscribe }));
         } finally {
             isProcessing = false;
-            // Process the next item in the queue
-            setTimeout(processQueue, 0);
+
+            // Proactive rate limiting delay
+            const rateLimitState = get(ratelimit);
+            const now = Date.now();
+            const timeToReset = rateLimitState.resetAt > now ? rateLimitState.resetAt - now : 3600 * 1000;
+            const remaining = rateLimitState.remaining > 0 ? rateLimitState.remaining : 1;
+
+            // Evenly space out remaining requests, with a minimum delay of 1s
+            const dynamicDelay = Math.max(1000, timeToReset / remaining);
+
+            console.log(`Next task in ${dynamicDelay / 1000}s`);
+            setTimeout(processQueue, dynamicDelay);
         }
     }
 

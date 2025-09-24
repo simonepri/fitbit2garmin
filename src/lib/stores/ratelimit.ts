@@ -30,6 +30,7 @@ function createRateLimitStore() {
 
     return {
         subscribe,
+        update, // Exposed for internal use
         updateFromHeaders,
         set // for testing
     };
