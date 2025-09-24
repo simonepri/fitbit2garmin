@@ -12,10 +12,16 @@ export interface QueueStats {
     remaining: string;
 }
 
-const movingAverage = derived(downloadDurations, ($durations) => {
-    if ($durations.length === 0) return 0;
-    const sum = $durations.reduce((a, b) => a + b, 0);
-    return sum / $durations.length;
+const averageDurations = derived(downloadDurations, ($durations) => {
+    const avgs: { [key in DataType]?: number } = {};
+    for (const type in $durations) {
+        const durations = $durations[type as DataType] || [];
+        if (durations.length > 0) {
+            const sum = durations.reduce((a, b) => a + b, 0);
+            avgs[type as DataType] = sum / durations.length;
+        }
+    }
+    return avgs;
 });
 
 function formatDuration(ms: number): string {
@@ -32,11 +38,12 @@ function formatDuration(ms: number): string {
 }
 
 export const stats = derived(
-    [downloads, ratelimit, movingAverage, queueStartTime],
-    ([$downloads, $ratelimit, $movingAverage, $queueStartTime]) => {
+    [downloads, ratelimit, averageDurations, queueStartTime],
+    ([$downloads, $ratelimit, $averageDurations, $queueStartTime]) => {
         const completed = $downloads.filter(t => t.status === 'completed').length;
         const failed = $downloads.filter(t => t.status === 'failed').length;
-        const pending = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading').length;
+        const pendingTasks = $downloads.filter(t => t.status === 'pending' || t.status === 'downloading');
+        const pending = pendingTasks.length;
         const isDownloading = $downloads.some(t => t.status === 'downloading');
         const total = $downloads.length;
 
@@ -49,13 +56,18 @@ export const stats = derived(
             status = 'FINISHED';
         }
 
-        const elapsed = $queueStartTime ? formatDuration(Date.now() - $queueStartTime) : '0s';
+        const elapsed = ($queueStartTime && status !== 'FINISHED') ? formatDuration(Date.now() - $queueStartTime) : ($queueStartTime ? formatDuration(0) : '0s');
 
         let remaining = '';
-        if (pending > 0 && $movingAverage > 0) {
-            const timeForTasks = pending * $movingAverage;
+        if (pending > 0) {
+            let timeForTasks = 0;
+            for (const task of pendingTasks) {
+                // Use the per-type average, or a default estimate (e.g., 5s) if no data yet
+                timeForTasks += $averageDurations[task.type] || 5000;
+            }
+
             const now = Date.now();
-            const timeForRateLimit = now < $ratelimit.resetAt && $ratelimit.remaining === 0
+            const timeForRateLimit = now < $ratelimit.resetAt && $ratelimit.remaining < pending
                 ? $ratelimit.resetAt - now
                 : 0;
             remaining = `~${formatDuration(timeForTasks + timeForRateLimit)}`;

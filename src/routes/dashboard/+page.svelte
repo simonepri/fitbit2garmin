@@ -56,7 +56,12 @@
 
     <div class="grid grid-cols-2 gap-8 items-center">
         <QueueStatusDisplay />
-        <div class="flex justify-end space-x-4">
+        <div class="flex flex-col sm:flex-row sm:justify-end sm:space-x-4 space-y-2 sm:space-y-0">
+            {#if $stats.total > 0}
+            <button on:click={() => {if(confirm('Are you sure you want to delete all tasks and downloaded data? This cannot be undone.')) downloads.clearAll()}} class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+                Delete All Data
+            </button>
+            {/if}
             {#if $stats.failed > 0}
             <button on:click={() => downloads.retryAllFailedTasks()} class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
                 Retry Failed

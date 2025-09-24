@@ -7,14 +7,24 @@ import { auth } from './auth';
 import { ratelimit } from './ratelimit';
 
 // --- ETA Stores ---
-export const downloadDurations = writable<number[]>([]);
-export const queueStartTime = writable<number | null>(null);
+export const downloadDurations = writable<{ [key in DataType]?: number[] }>({});
+const QUEUE_START_TIME_KEY = 'queue_start_time';
 
-function addDownloadDuration(duration: number) {
+const initialStartTime = browser ? Number(localStorage.getItem(QUEUE_START_TIME_KEY) || '0') : 0;
+export const queueStartTime = writable<number | null>(initialStartTime > 0 ? initialStartTime : null);
+
+queueStartTime.subscribe(value => {
+    if (browser) {
+        localStorage.setItem(QUEUE_START_TIME_KEY, String(value || '0'));
+    }
+});
+
+function addDownloadDuration(duration: number, type: DataType) {
     downloadDurations.update(durations => {
-        const newDurations = [duration, ...durations];
+        const typeDurations = durations[type] || [];
+        const newDurations = [duration, ...typeDurations];
         if (newDurations.length > 20) newDurations.pop();
-        return newDurations;
+        return { ...durations, [type]: newDurations };
     });
 }
 
@@ -237,7 +247,7 @@ function createDownloadsStore() {
             update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed' } : t));
         } finally {
             const duration = Date.now() - startTime;
-            addDownloadDuration(duration);
+            addDownloadDuration(duration, task.type);
             await db.saveTasks(get({ subscribe }));
         }
     }
@@ -359,6 +369,7 @@ function createDownloadsStore() {
     async function clearAll() {
         if (browser) {
             await db.clearAllData();
+            queueStartTime.set(null); // This will also clear localStorage
             set([]);
         }
     }
