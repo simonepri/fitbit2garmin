@@ -1,6 +1,6 @@
 import { derived, get } from 'svelte/store';
 import { downloads, queueStartTime, queueEndTime } from './downloads';
-import { ratelimit } from './ratelimit';
+import { ratelimit } from '$lib/client/api';
 
 export interface QueueStats {
     completed: number;

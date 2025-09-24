@@ -53,10 +53,10 @@
 <div class="space-y-8">
     <DownloadTasksForm />
 
-    <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
-        <QueueStatusDisplay />
-        <div class="flex justify-end flex-wrap gap-4">
-            {#if $stats.total > 0}
+<div class="space-y-4">
+    <QueueStatusDisplay />
+    <div class="flex justify-end flex-wrap gap-4">
+        {#if $stats.total > 0}
             <button on:click={() => {if(confirm('Are you sure you want to delete all tasks and downloaded data? This cannot be undone.')) downloads.clearAll()}} class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded cursor-pointer">
                 Delete All Data
             </button>

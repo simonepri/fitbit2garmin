@@ -4,7 +4,7 @@ import { db } from '$lib/db';
 import type { DownloadTask, DataType, TaskStatus, FitbitToken, StoredFile } from '$lib/types';
 import { eachMonthOfInterval, startOfMonth, endOfMonth, format } from 'date-fns';
 import { auth } from './auth';
-import { ratelimit } from './ratelimit';
+import { ratelimit } from '$lib/client/api';
 
 // --- ETA Stores ---
 const QUEUE_START_TIME_KEY = 'queue_start_time';
@@ -22,37 +22,7 @@ queueEndTime.subscribe(value => {
     if (browser) localStorage.setItem(QUEUE_END_TIME_KEY, String(value || '0'));
 });
 
-// --- Client-side Fetch to Proxy ---
-
-async function fetchProxy(path: string, token: FitbitToken, options: RequestInit = {}): Promise<Response> {
-    // The proxy now passes through the Authorization header directly
-    const authHeader = `Bearer ${token.access_token}`;
-
-    const response = await fetch(`/api/fitbit-proxy/${path}`, {
-        ...options,
-        headers: {
-            ...options.headers,
-            Authorization: authHeader
-        }
-    });
-
-    // Update rate limit store from response headers
-    ratelimit.updateFromHeaders(response.headers);
-
-    if (response.status === 429) {
-        // If we get a 429, manually set remaining to 0 to pause the queue.
-        // The resetAt time will be correctly set by updateFromHeaders.
-        ratelimit.update(r => ({ ...r, remaining: 0 }));
-        throw new Error('Too Many Requests');
-    }
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(error.message);
-    }
-
-    return response;
-}
+import * as api from '$lib/client/api';
 
 
 // --- Store ---
@@ -190,135 +160,55 @@ function createDownloadsStore() {
         const token = get(auth);
         if (!token) throw new Error('Not authenticated');
 
-        const start = startOfMonth(new Date(task.year, task.month - 1));
-        const end = endOfMonth(start);
-        const startStr = format(start, 'yyyy-MM-dd');
-        const endStr = format(end, 'yyyy-MM-dd');
-
         try {
-            switch (task.type) {
-                case 'weight':
-                    await processWeightTask(task, token, startStr, endStr);
-                    break;
-                case 'activity':
-                    await processActivityTask(task, token, startStr, endStr);
-                    break;
-                case 'tcx':
-                    await processTcxTask(task, token, start, end);
-                    break;
+            if (task.type === 'tcx') {
+                // TCX tasks are special: we get a list of files and download them one by one
+                const activities = await api.getTcxActivities(task, token);
+                update(tasks => tasks.map(t => t.id === task.id ? {...t, totalFiles: activities.length} : t));
+                await db.saveTasks(get({subscribe}));
+
+                if (activities.length === 0) {
+                    // No files to download, task is complete but empty
+                    update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'completed', endTime: Date.now() } : t));
+                    return;
+                }
+
+                let completedCount = 0, failedCount = 0, emptyCount = 0;
+                for (const activity of activities) {
+                    // Proactive delay before each TCX file download
+                    const delay = new Promise(r => setTimeout(r, get(api.ratelimit).remaining > 1 ? 1000 : (get(api.ratelimit).resetAt - Date.now()) / (get(api.ratelimit).remaining + 1)));
+                    await delay;
+
+                    const file = await api.downloadTcxFile(activity, task, token);
+                    if (file) {
+                        await db.addFile(file);
+                        completedCount++;
+                    } else {
+                        emptyCount++;
+                    }
+                    update(tasks => tasks.map(t => t.id === task.id ? {...t, completedFiles: completedCount, failedFiles: failedCount, emptyFiles: emptyCount } : t));
+                    await db.saveTasks(get({subscribe}));
+                }
+            } else {
+                // Weight and Activity tasks are processed in one go
+                const files = await api.dataProcessors[task.type](task, token);
+                if (files.length > 0) {
+                    for (const file of files) await db.addFile(file);
+                    update(tasks => tasks.map(t => t.id === task.id ? {...t, totalFiles: files.length, completedFiles: files.length} : t));
+                } else {
+                    update(tasks => tasks.map(t => t.id === task.id ? {...t, totalFiles: 0} : t));
+                }
             }
-            // If any files failed, the whole task is failed, otherwise completed
-            const finalStatus = get({subscribe}).find(t => t.id === task.id)?.failedFiles ?? 0 > 0 ? 'failed' : 'completed';
+
+            // Finalize task status
+            const finalTaskState = get({subscribe}).find(t => t.id === task.id);
+            const finalStatus = finalTaskState?.failedFiles ?? 0 > 0 ? 'failed' : 'completed';
             update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: finalStatus, endTime: Date.now() } : t));
+
         } catch (error) {
             console.error(`Error processing task ${task.id}:`, error);
             update(tasks => tasks.map(t => t.id === task.id ? { ...t, status: 'failed', endTime: Date.now() } : t));
         } finally {
-            await db.saveTasks(get({ subscribe }));
-        }
-    }
-
-    async function processWeightTask(task: DownloadTask, token: FitbitToken, start: string, end: string) {
-        const res = await fetchProxy(`1/user/-/body/log/weight/date/${start}/${end}.json`, token);
-        const data = await res.json();
-
-        if (data.weight && data.weight.length > 0) {
-            const header = "Body\nDate,Weight,BMI,Fat";
-            const rows = data.weight.map((d: any) => `${d.date},${d.weight},${d.bmi},${d.fat || '0'}`);
-            const csv = [header, ...rows].join('\n');
-            const file: StoredFile = {
-                id: task.id,
-                taskId: task.id,
-                type: 'weight',
-                content: new Blob([csv], { type: 'text/csv' }),
-                timestamp: Date.now()
-            };
-            await db.addFile(file);
-            update(ts => ts.map(t => t.id === task.id ? {...t, totalFiles: 1, completedFiles: 1} : t));
-        } else {
-             update(ts => ts.map(t => t.id === task.id ? {...t, totalFiles: 0} : t));
-        }
-    }
-
-    async function processActivityTask(task: DownloadTask, token: FitbitToken, start: string, end: string) {
-        const resources = ['activityCalories', 'calories', 'distance', 'floors', 'minutesSedentary', 'minutesLightlyActive', 'minutesFairlyActive', 'minutesVeryActive', 'steps'];
-        const activityByDate: Record<string, any> = {};
-
-        for (const resource of resources) {
-            const res = await fetchProxy(`1/user/-/activities/${resource}/date/${start}/${end}.json`, token);
-            const data = await res.json();
-            for (const activity of data[`activities-${resource}`]) {
-                if (!activityByDate[activity.dateTime]) {
-                    activityByDate[activity.dateTime] = { date: activity.dateTime };
-                }
-                activityByDate[activity.dateTime][resource] = activity.value;
-            }
-        }
-        const entries = Object.values(activityByDate).filter(a => a.steps > 0);
-
-        if (entries.length > 0) {
-            const header = "Activities\nDate,Calories Burned,Steps,Distance,Floors,Minutes Sedentary,Minutes Lightly Active,Minutes Fairly Active,Minutes Very Active,Activity Calories";
-            const rows = entries.map((e: any) => `${e.date},${e.calories},${e.steps},${e.distance},${e.floors},${e.minutesSedentary},${e.minutesLightlyActive},${e.minutesFairlyActive},${e.minutesVeryActive},${e.activityCalories}`);
-            const csv = [header, ...rows].join('\n');
-            const file: StoredFile = { id: task.id, taskId: task.id, type: 'activity', content: new Blob([csv], { type: 'text/csv' }), timestamp: Date.now() };
-            await db.addFile(file);
-            update(ts => ts.map(t => t.id === task.id ? {...t, totalFiles: 1, completedFiles: 1} : t));
-        } else {
-            update(ts => ts.map(t => t.id === task.id ? {...t, totalFiles: 0} : t));
-        }
-    }
-
-    async function processTcxTask(task: DownloadTask, token: FitbitToken, start: Date, end: Date) {
-        const startStr = format(start, 'yyyy-MM-dd');
-        const res = await fetchProxy(`1/user/-/activities/list.json?afterDate=${startStr}&sort=asc&limit=100&offset=0`, token);
-        const data = await res.json();
-
-        const activities = data.activities.filter((a: any) => new Date(a.originalStartTime) <= end && a.logType !== 'auto_detected' && a.tcxLink);
-
-        update(ts => ts.map(t => t.id === task.id ? {...t, totalFiles: activities.length} : t));
-        await db.saveTasks(get({subscribe}));
-
-        if (activities.length === 0) return;
-
-        let completedCount = 0;
-        let failedCount = 0;
-        let emptyCount = 0;
-
-        for (const activity of activities) {
-            const delayPromise = new Promise(resolve => {
-                const rateLimitState = get(ratelimit);
-                const now = Date.now();
-                const timeToReset = rateLimitState.resetAt > now ? rateLimitState.resetAt - now : 3600 * 1000;
-                const remaining = rateLimitState.remaining > 0 ? rateLimitState.remaining : 1;
-                const dynamicDelay = Math.max(1000, timeToReset / remaining);
-                setTimeout(resolve, dynamicDelay);
-            });
-
-            await delayPromise;
-
-            try {
-                const fileId = `${task.year}-${String(task.month).padStart(2, '0')}-tcx-${activity.logId}`;
-                const existingFile = await db.files.get(fileId);
-                if (existingFile) {
-                    completedCount++;
-                    continue;
-                }
-                const tcxRes = await fetchProxy(`1/user/-/activities/${activity.logId}.tcx`, token);
-                const tcxContent = await tcxRes.arrayBuffer();
-
-                if (tcxContent.byteLength < 250) {
-                    emptyCount++;
-                } else {
-                    const file: StoredFile = { id: fileId, taskId: task.id, type: 'tcx', content: new Blob([tcxContent]), timestamp: Date.now() };
-                    await db.addFile(file);
-                    completedCount++;
-                }
-            } catch (e) {
-                console.error(`Failed to download TCX for logId ${activity.logId}`, e);
-                failedCount++;
-            }
-            // Update UI progressively
-            update(ts => ts.map(t => t.id === task.id ? {...t, completedFiles: completedCount, failedFiles: failedCount, emptyFiles: emptyCount } : t));
             await db.saveTasks(get({ subscribe }));
         }
     }
@@ -348,6 +238,7 @@ function createDownloadsStore() {
             await db.clearAllData();
             queueStartTime.set(null);
             queueEndTime.set(null);
+            api.ratelimit.set({ limit: 150, remaining: 150, resetAt: Date.now() + 3600 * 1000 });
             set([]);
         }
     }

@@ -1,6 +1,6 @@
 <script lang="ts">
     import { stats } from '$lib/stores/stats';
-    import { ratelimit } from '$lib/stores/ratelimit';
+    import { ratelimit } from '$lib/client/api';
     import { queueStartTime } from '$lib/stores/downloads';
     import { onMount } from 'svelte';
 
