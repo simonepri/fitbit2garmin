@@ -348,7 +348,6 @@ function createDownloadsStore() {
             await db.clearAllData();
             queueStartTime.set(null);
             queueEndTime.set(null);
-            downloadDurations.set({});
             set([]);
         }
     }
