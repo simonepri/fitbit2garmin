@@ -1,12 +1,16 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { error } from '@sveltejs/kit';
 
-export const fallback: RequestHandler = async ({ request, params }) => {
-	const targetUrl = params.url;
+const FITBIT_API_BASE_URL = 'https://api.fitbit.com';
 
-	if (!targetUrl) {
-		throw error(400, 'Target URL is required');
+export const fallback: RequestHandler = async ({ request, params }) => {
+	const path = params.url;
+
+	if (!path) {
+		throw error(400, 'API path is required');
 	}
+
+	const targetUrl = `${FITBIT_API_BASE_URL}/${path}`;
 
 	// Reconstruct the original headers, removing host-specific ones
 	const fwdHeaders = new Headers(request.headers);

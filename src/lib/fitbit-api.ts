@@ -196,7 +196,7 @@ export class FitbitAPI {
 			code_verifier: this.state.codeVerifier
 		});
 
-		const url = `${this.proxyAddress}/${FITBIT_API_BASE_URL}/oauth2/token`;
+		const url = `${this.proxyAddress}/oauth2/token`;
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -225,7 +225,7 @@ export class FitbitAPI {
 			client_id: this.clientId
 		});
 
-		const url = `${this.proxyAddress}/${FITBIT_API_BASE_URL}/oauth2/token`;
+		const url = `${this.proxyAddress}/oauth2/token`;
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -306,7 +306,7 @@ export class FitbitAPI {
 			}
 		}
 
-		const url = `${this.proxyAddress}/${FITBIT_API_BASE_URL}/${API_VERSION}${endpoint}`;
+		const url = `${this.proxyAddress}/${API_VERSION}${endpoint}`;
 		const response = await fetch(url, {
 			...options,
 			headers: {
