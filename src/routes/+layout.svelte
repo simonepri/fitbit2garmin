@@ -21,7 +21,3 @@
 <main class="container mx-auto p-4">
 	<slot />
 </main>
-
-{#if browser}
-	<Toast />
-{/if}
