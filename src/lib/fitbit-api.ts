@@ -335,19 +335,19 @@ export class FitbitAPI {
 		startDate: string,
 		endDate: string
 	): Promise<{ weight: FitbitWeightLog[] }> {
-		const endpoint = `/user/-/body/log/weight/date/${startDate}/${endDate}.json`;
+		const endpoint = `user/-/body/log/weight/date/${startDate}/${endDate}.json`;
 		const response = await this.apiFetch(endpoint);
 		return response.json();
 	}
 
 	public async getActivityLogs(date: string): Promise<{ activities: FitbitActivityLog[] }> {
-		const endpoint = `/user/-/activities/list.json?afterDate=${date}&sort=asc&offset=0&limit=100`;
+		const endpoint = `user/-/activities/list.json?afterDate=${date}&sort=asc&offset=0&limit=100`;
 		const response = await this.apiFetch(endpoint);
 		return response.json();
 	}
 
 	public async getActivityTCX(logId: number): Promise<string> {
-		const endpoint = `/user/-/activities/${logId}.tcx`;
+		const endpoint = `user/-/activities/${logId}.tcx`;
 		const response = await this.apiFetch(endpoint);
 		return response.text();
 	}
@@ -357,7 +357,7 @@ export class FitbitAPI {
 		startDate: string,
 		endDate: string
 	): Promise<{ [key: string]: FitbitTimeSeriesData[] }> {
-		const endpoint = `/user/-/activities/${resource}/date/${startDate}/${endDate}.json`;
+		const endpoint = `user/-/activities/${resource}/date/${startDate}/${endDate}.json`;
 		const response = await this.apiFetch(endpoint);
 		return response.json();
 	}

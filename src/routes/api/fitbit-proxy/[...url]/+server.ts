@@ -12,21 +12,20 @@ export const fallback: RequestHandler = async ({ request, params }) => {
 
 	const targetUrl = `${FITBIT_API_BASE_URL}/${path}`;
 
-	// Reconstruct the original headers, removing host-specific ones
 	const fwdHeaders = new Headers(request.headers);
 	fwdHeaders.delete('host');
 	fwdHeaders.delete('connection');
+	fwdHeaders.delete('content-length');
+
+	// Read the body to a string to avoid streaming issues with the proxy.
+	const body = request.method === 'POST' ? await request.text() : null;
 
 	try {
-		// The `duplex: 'half'` property is required for streaming request bodies
-		// in Node's `fetch`. We cast to `any` to bypass a TypeScript lib issue.
 		const response = await fetch(targetUrl, {
 			method: request.method,
 			headers: fwdHeaders,
-			body: request.body,
-			duplex: 'half'
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		} as any);
+			body: body
+		});
 
 		// Create a new response with the streamed body from the target
 		return new Response(response.body, {
