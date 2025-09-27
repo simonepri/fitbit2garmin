@@ -14,12 +14,15 @@ export const fallback: RequestHandler = async ({ request, params }) => {
 	fwdHeaders.delete('connection');
 
 	try {
+		// The `duplex: 'half'` property is required for streaming request bodies
+		// in Node's `fetch`. We cast to `any` to bypass a TypeScript lib issue.
 		const response = await fetch(targetUrl, {
 			method: request.method,
 			headers: fwdHeaders,
-			body: request.body
-			// duplex: 'half' // Required for streaming request bodies - removed for compatibility
-		});
+			body: request.body,
+			duplex: 'half'
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		} as any);
 
 		// Create a new response with the streamed body from the target
 		return new Response(response.body, {
