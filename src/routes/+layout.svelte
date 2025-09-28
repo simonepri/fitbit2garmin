@@ -1,15 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount, setContext } from 'svelte';
-	import {
-		Navbar,
-		NavBrand,
-		NavLi,
-		NavContainer,
-		NavHamburger,
-		Button,
-		Modal
-	} from 'flowbite-svelte';
+	import { Navbar, NavBrand, Button, Modal } from 'flowbite-svelte';
 	import { FitbitApi } from '$lib/fitbit-api';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -42,21 +34,14 @@
 			Fitbit2Garmin
 		</span>
 	</NavBrand>
-	<div class="flex items-center space-x-3 md:order-2 rtl:space-x-reverse">
+	<div class="ml-auto flex items-center space-x-3 md:order-2 rtl:space-x-reverse">
 		{#if userId}
-			<span class="mr-3 text-sm text-gray-500 dark:text-gray-400">
+			<span class="mr-3 hidden text-sm text-gray-500 dark:text-gray-400 sm:inline">
 				Welcome, {userId}
 			</span>
 			<Button size="sm" onclick={() => (showLogoutModal = true)}>Logout</Button>
 		{/if}
-		<NavHamburger />
 	</div>
-	<NavContainer>
-		<NavLi href="/">Home</NavLi>
-		{#if userId}
-			<NavLi href="/download">Dashboard</NavLi>
-		{/if}
-	</NavContainer>
 </Navbar>
 
 <main class="min-h-screen bg-white p-4 dark:bg-gray-900 dark:text-white">
