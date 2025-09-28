@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '../app.css';
 	import { onMount, setContext } from 'svelte';
 	import {
 		Navbar,
