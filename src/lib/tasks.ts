@@ -17,7 +17,7 @@ interface FitbitWeightEntry {
 }
 
 interface FitbitActivityLogEntry {
-	logId: number;
+	logId: string;
 	logType: string;
 	startTime: string;
 }
@@ -211,7 +211,16 @@ export class TcxTask extends Task {
 				if (file.status === 'pending' || file.status === 'failed') {
 					try {
 						const response = await api.apiFetch(`1/user/-/activities/${file.id}.tcx`);
-						if (!response.ok) throw new Error(`Failed to fetch TCX for logId ${file.id}`);
+						if (!response.ok) {
+							const errorText = await response.text();
+							console.error(
+								`Fitbit API Error for TCX ${file.id}:`,
+								response.status,
+								response.statusText,
+								errorText
+							);
+							throw new Error(`Failed to fetch TCX for logId ${file.id}`);
+						}
 						const tcxContent = await response.text();
 						if (tcxContent.trim().split('\n').length <= 15) {
 							file.status = 'empty';
@@ -246,7 +255,10 @@ export class TcxTask extends Task {
 		);
 		if (!response.ok) throw new Error('Failed to fetch activity list');
 
-		const data: { activities: FitbitActivityLogEntry[] } = await response.json();
+		// Patch the response to handle large logId numbers
+		const text = await response.text();
+		const patchedText = text.replace(/"logId":(\d+)/g, '"logId":"$1"');
+		const data: { activities: FitbitActivityLogEntry[] } = JSON.parse(patchedText);
 		this.files = data.activities
 			.filter((activity) => {
 				const activityDate = new Date(activity.startTime);

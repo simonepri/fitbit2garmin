@@ -2,7 +2,7 @@ import { writable, get as getStoreValue } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 import { get, set, del } from 'idb-keyval';
 import { Task, WeightTask, ActivityTask, TcxTask, type TaskType } from './tasks';
-import type { FitbitApi } from './fitbit-api';
+import type { FitbitApi } from '$lib/fitbit-api';
 import JSZip from 'jszip';
 import { browser } from '$app/environment';
 

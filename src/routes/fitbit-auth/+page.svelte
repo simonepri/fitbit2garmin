@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, getContext } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { FitbitApi } from '$lib/fitbit-api';
 	import { Spinner } from 'flowbite-svelte';
+	import { keys } from '$lib/keys';
+	import type { FitbitApi } from '$lib/fitbit-api';
+
+	const fitbitApi = getContext<FitbitApi>(keys.fitbitApi);
 
 	let error: string | null = null;
 
@@ -14,7 +17,6 @@
 			return;
 		}
 
-		const fitbitApi = new FitbitApi();
 		try {
 			await fitbitApi.exchangeCodeForToken(code);
 			// eslint-disable-next-line svelte/no-navigation-without-resolve

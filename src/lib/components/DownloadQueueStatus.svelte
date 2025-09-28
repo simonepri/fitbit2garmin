@@ -35,7 +35,7 @@
 </script>
 
 <div
-	class="md:flex-row gap-4 p-4 bg-gray-800 rounded-lg flex flex-col items-center justify-between"
+	class="gap-4 rounded-lg bg-gray-800 p-4 md:flex-row flex flex-col items-center justify-between"
 >
 	<div class="flex-grow">
 		<span>Status: <span class="font-bold">{queueStatus}</span></span> |

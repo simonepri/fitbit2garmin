@@ -1,14 +1,30 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import { DownloadQueue } from './queue';
-import { FitbitApi } from './fitbit-api';
-import { Task, type TaskType } from './tasks';
-import { get, writable } from 'svelte/store';
+import { get } from 'svelte/store';
 import * as idbKeyval from 'idb-keyval';
 import JSZip from 'jszip';
 
-// Mock dependencies
+// Mock localStorage *before* importing application code
+let store: Record<string, string> = {};
+const mockLocalStorage = {
+	getItem: (key: string) => store[key] || null,
+	setItem: (key: string, value: string) => {
+		store[key] = value;
+	},
+	removeItem: (key: string) => {
+		delete store[key];
+	},
+	clear: () => {
+		store = {};
+	}
+};
+vi.stubGlobal('localStorage', mockLocalStorage);
+
+import { DownloadQueue } from './queue';
+import { FitbitApi } from '$lib/fitbit-api';
+import { Task, type TaskType } from './tasks';
+
+// Mock other dependencies
 vi.mock('idb-keyval');
-vi.mock('./fitbit-api');
 vi.mock('$app/environment', () => ({ browser: true }));
 
 // Mock jszip
@@ -70,10 +86,10 @@ describe('DownloadQueue', () => {
 		vi.mocked(JSZip).mockClear();
 		vi.mocked(mockZipInstance.file).mockClear();
 		vi.mocked(mockZipInstance.generateAsync).mockClear();
+		mockLocalStorage.clear();
 
-		mockFitbitApi = {
-			authState: writable({ userId: 'test-user' })
-		} as FitbitApi;
+		// We need to provide a mock instance of FitbitApi
+		mockFitbitApi = new FitbitApi({ userId: 'test-user' });
 
 		queue = new DownloadQueue(mockFitbitApi);
 	});

@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { FitbitApi } from '$lib/fitbit-api';
+	import { onMount, getContext } from 'svelte';
 	import { DownloadQueue, type QueueState } from '$lib/queue';
 	import DownloadQueueForm from '$lib/components/DownloadQueueForm.svelte';
 	import DownloadQueueStatus from '$lib/components/DownloadQueueStatus.svelte';
 	import DownloadQueueTable from '$lib/components/DownloadQueueTable.svelte';
-	import { Button, Modal, Toast } from 'flowbite-svelte';
+	import { Toast } from 'flowbite-svelte';
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import type { TaskType } from '$lib/tasks';
+	import { keys } from '$lib/keys';
+	import type { FitbitApi } from '$lib/fitbit-api';
 
-	let fitbitApi: FitbitApi;
+	const fitbitApi = getContext<FitbitApi>(keys.fitbitApi);
+
 	let queue: DownloadQueue;
 	let queueState: QueueState;
-	let showLogoutModal = false;
 	let showToast = false;
 	let toastMessage = '';
 
 	onMount(() => {
-		fitbitApi = new FitbitApi();
 		const authState = get(fitbitApi.authState);
 
 		if (!authState.accessToken) {
@@ -59,21 +59,10 @@
 			URL.revokeObjectURL(url);
 		}
 	}
-
-	function handleLogout() {
-		if (fitbitApi) {
-			fitbitApi.logout();
-		}
-		if (queue) {
-			queue.eraseData();
-		}
-		// eslint-disable-next-line svelte/no-navigation-without-resolve
-		goto('/');
-	}
 </script>
 
 <div class="p-4">
-	<h1 class="text-2xl font-bold mb-4">Download Dashboard</h1>
+	<h1 class="mb-4 text-2xl font-bold">Download Dashboard</h1>
 	{#if queue}
 		<div class="space-y-4">
 			<DownloadQueueForm onAddTask={handleAddTask} />
@@ -92,19 +81,10 @@
 				/>
 			{/if}
 		</div>
-		<Button class="mt-4" onclick={() => (showLogoutModal = true)}>Logout</Button>
 	{:else}
 		<p>Initializing...</p>
 	{/if}
 </div>
-
-<Modal bind:open={showLogoutModal} title="Confirm Logout">
-	<p>Are you sure you want to log out? All your queued and downloaded data will be erased.</p>
-	<div class="gap-2 mt-4 flex justify-end">
-		<Button color="red" onclick={handleLogout}>Logout</Button>
-		<Button color="gray" onclick={() => (showLogoutModal = false)}>Cancel</Button>
-	</div>
-</Modal>
 
 {#if showToast}
 	<Toast>{toastMessage}</Toast>

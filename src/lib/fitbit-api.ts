@@ -69,7 +69,7 @@ export class FitbitApi {
 		const params = new URLSearchParams({
 			client_id: PUBLIC_FITBIT_CLIENT_ID,
 			redirect_uri: redirectUri,
-			scope: 'weight activity',
+			scope: 'weight activity heartrate location',
 			code_challenge: codeChallenge,
 			code_challenge_method: 'S256',
 			response_type: 'code'

@@ -10,13 +10,20 @@
 		types: TaskType[]
 	) => void;
 
-	const now = new Date();
-	let endYear = now.getFullYear();
-	let endMonth = now.getMonth() + 1;
-	now.setMonth(now.getMonth() - 1);
-	let startYear = now.getFullYear();
-	let startMonth = now.getMonth() + 1;
+	let startYear: number;
+	let startMonth: number;
+	let endYear: number;
+	let endMonth: number;
 	let selectedTypes: TaskType[] = [];
+
+	// Initialize dates without top-level mutation
+	const today = new Date();
+	endYear = today.getFullYear();
+	endMonth = today.getMonth() + 1; // getMonth is 0-indexed
+
+	const oneMonthAgo = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+	startYear = oneMonthAgo.getFullYear();
+	startMonth = oneMonthAgo.getMonth() + 1;
 
 	function handleAdd() {
 		if (selectedTypes.length > 0) {
@@ -29,16 +36,16 @@
 	}
 </script>
 
-<div class="md:flex-row gap-4 flex flex-col items-center">
-	<div class="sm:flex-row gap-4 flex flex-col">
+<div class="gap-4 md:flex-row flex flex-col items-center">
+	<div class="gap-4 sm:flex-row flex flex-col">
 		<MonthYearPicker bind:year={startYear} bind:month={startMonth} labelPrefix="Start" />
 		<MonthYearPicker bind:year={endYear} bind:month={endMonth} labelPrefix="End" />
 	</div>
 	<div class="gap-4 flex flex-wrap">
 		{#each availableTaskTypes as type (type)}
-			<Checkbox bind:group={selectedTypes} value={type}
-				>{type.charAt(0).toUpperCase() + type.slice(1)}</Checkbox
-			>
+			<Checkbox bind:group={selectedTypes} value={type}>
+				{type.charAt(0).toUpperCase() + type.slice(1)}
+			</Checkbox>
 		{/each}
 	</div>
 	<Button onclick={handleAdd}>Add to Download Queue</Button>

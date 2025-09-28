@@ -1,11 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FitbitApi } from './fitbit-api';
 import { get } from 'svelte/store';
 
-// Mock browser environment
+// Mock browser environment first
 vi.mock('$app/environment', () => ({
 	browser: true
 }));
+
+// Mock localStorage *before* importing the module that uses it.
+let store: Record<string, string> = {};
+const mockLocalStorage = {
+	getItem: (key: string) => store[key] || null,
+	setItem: (key: string, value: string) => {
+		store[key] = value;
+	},
+	removeItem: (key: string) => {
+		delete store[key];
+	},
+	clear: () => {
+		store = {};
+	}
+};
+vi.stubGlobal('localStorage', mockLocalStorage);
+
+import { FitbitApi } from './fitbit-api';
 
 // Mock env variables
 vi.mock('$env/static/public', () => ({
@@ -29,22 +46,6 @@ const mockCrypto = {
 };
 vi.stubGlobal('crypto', mockCrypto);
 
-// Mock localStorage
-let store: Record<string, string> = {};
-const mockLocalStorage = {
-	getItem: (key: string) => store[key] || null,
-	setItem: (key: string, value: string) => {
-		store[key] = value;
-	},
-	removeItem: (key: string) => {
-		delete store[key];
-	},
-	clear: () => {
-		store = {};
-	}
-};
-vi.stubGlobal('localStorage', mockLocalStorage);
-
 // Mock fetch
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -53,6 +54,7 @@ describe('FitbitApi', () => {
 	let fitbitApi: FitbitApi;
 
 	beforeEach(() => {
+		// We test the class, not the singleton instance
 		fitbitApi = new FitbitApi();
 		mockLocalStorage.clear();
 		mockFetch.mockReset();
