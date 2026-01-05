@@ -26,12 +26,13 @@ format = "python -m ufmt format fitbit2garmin"
 check-format = "python -m ufmt check fitbit2garmin"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 aiohttp = "^3.8.6"
 click = "^8.1.7"
 python-dateutil = "^2.8.2"
 asyncio-throttle = "^1.0.2"
 annotated-types = "^0.6.0"
+garminconnect = "^0.2.38"
 
 [build-system]
 requires = ["poetry-core"]
