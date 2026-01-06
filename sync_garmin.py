@@ -37,6 +37,9 @@ if (BASE_DIR / ".env" / ".auth").exists():
 DATA_DIR = BASE_DIR / "f2g"
 ACTIVITY_DIR = DATA_DIR / "activities"
 
+def log(msg):
+    print(f"[{datetime.datetime.now()}] {msg}")
+
 async def fetch_fitbit_weight():
     """
     Fetches the current day's weight data from Fitbit.
@@ -44,7 +47,7 @@ async def fetch_fitbit_weight():
     end_date = date.today()
     start_date = end_date
     
-    print(f"Fetching Fitbit weight data for {start_date}...")
+    log(f"Fetching Fitbit weight data for {start_date}...")
     
     # Ensure directories exist
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -56,7 +59,7 @@ async def fetch_fitbit_weight():
         start_date,
         end_date
     )
-    print("Fitbit weight download complete.")
+    log("Fitbit weight download complete.")
 
 async def fetch_fitbit_activities():
     """
@@ -65,7 +68,7 @@ async def fetch_fitbit_activities():
     end_date = date.today()
     start_date = end_date
     
-    print(f"Fetching Fitbit activity data (TCX) for {start_date}...")
+    log(f"Fetching Fitbit activity data (TCX) for {start_date}...")
     
     # Ensure directories exist
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -77,7 +80,7 @@ async def fetch_fitbit_activities():
         start_date,
         end_date
     )
-    print("Fitbit activity download complete.")
+    log("Fitbit activity download complete.")
 
 def upload_weight_to_garmin(garmin):
     """
@@ -87,13 +90,13 @@ def upload_weight_to_garmin(garmin):
     files = sorted(glob.glob(str(DATA_DIR / "weight.*.csv")))
     
     if not files:
-        print("No weight files found to upload.")
+        log("No weight files found to upload.")
         return
 
-    print(f"Found {len(files)} weight files.")
+    log(f"Found {len(files)} weight files.")
     
     for file_path in files:
-        print(f"Processing {file_path}...")
+        log(f"Processing {file_path}...")
         try:
             with open(file_path, 'r') as csvfile:
                 # The file might start with a "Body" line, so we check/skip it
@@ -104,7 +107,7 @@ def upload_weight_to_garmin(garmin):
                 reader = csv.DictReader(csvfile)
                 # Check headers
                 if not reader.fieldnames or not {'Date', 'Weight'}.issubset(reader.fieldnames):
-                     print(f"Skipping {file_path}: Missing Date or Weight columns. Found: {reader.fieldnames}")
+                     log(f"Skipping {file_path}: Missing Date or Weight columns. Found: {reader.fieldnames}")
                      continue
                      
                 for row in reader:
@@ -125,20 +128,20 @@ def upload_weight_to_garmin(garmin):
                                weight=weight,
                                percent_fat=fat if fat > 0 else None,
                            )
-                           print(f"Uploaded weight for {date_str}: {weight}kg, {fat}% fat")
+                           log(f"Uploaded weight for {date_str}: {weight}kg, {fat}% fat")
                            
                         elif hasattr(garmin, 'add_weigh_in'):
                              garmin.add_weigh_in(weight, 'kg', date_str)
-                             print(f"Uploaded weight (basic) for {date_str}: {weight}kg")
+                             log(f"Uploaded weight (basic) for {date_str}: {weight}kg")
                         else:
-                             print("Error: Could not find a suitable method to upload weight in 'garminconnect'.")
+                             log("Error: Could not find a suitable method to upload weight in 'garminconnect'.")
                              return
 
                     except Exception as e:
-                        print(f"Failed to upload entry for {date_str}: {e}")
+                        log(f"Failed to upload entry for {date_str}: {e}")
 
         except Exception as e:
-            print(f"Failed to read {file_path}: {e}")
+            log(f"Failed to read {file_path}: {e}")
 
 def upload_activities_to_garmin(garmin):
     """
@@ -148,19 +151,19 @@ def upload_activities_to_garmin(garmin):
     files = sorted(glob.glob(str(ACTIVITY_DIR / "*.tcx")))
     
     if not files:
-        print("No activity (TCX) files found to upload.")
+        log("No activity (TCX) files found to upload.")
         return
 
-    print(f"Found {len(files)} activity files.")
+    log(f"Found {len(files)} activity files.")
     
     for file_path in files:
-        print(f"Uploading activity {file_path}...")
+        log(f"Uploading activity {file_path}...")
         try:
             # upload_activity is the correct method for TCX/FIT/GPX files
             upload_status = garmin.upload_activity(file_path)
-            print(f"Upload result: {upload_status}")
+            log(f"Upload result: {upload_status}")
         except Exception as e:
-            print(f"Failed to upload {file_path}: {e}")
+            log(f"Failed to upload {file_path}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Sync Fitbit data to Garmin Connect.")
@@ -176,13 +179,13 @@ def main():
         if args.activity:
             asyncio.run(fetch_fitbit_activities())
     except Exception as e:
-        print(f"Error fetching Fitbit data: {e}")
-        print("Proceeding to upload phase with existing files...")
+        log(f"Error fetching Fitbit data: {e}")
+        log("Proceeding to upload phase with existing files...")
 
     # 2. Upload to Garmin
     # Only login if we have something to upload or just downloaded something
     if not (args.weight or args.activity):
-        print("Nothing to sync. Use --weight or --activity.")
+        log("Nothing to sync. Use --weight or --activity.")
         return
 
     email = os.getenv("GARMIN_EMAIL")
@@ -195,11 +198,11 @@ def main():
         password = getpass("Garmin Password: ")
 
     if email and password:
-        print("Logging into Garmin Connect...")
+        log("Logging into Garmin Connect...")
         try:
             garmin = Garmin(email, password)
             garmin.login()
-            print("Login successful.")
+            log("Login successful.")
             
             if args.weight:
                 upload_weight_to_garmin(garmin)
@@ -207,9 +210,9 @@ def main():
                 upload_activities_to_garmin(garmin)
                 
         except Exception as err:
-            print(f"Error logging in: {err}")
+            log(f"Error logging in: {err}")
     else:
-        print("Credentials not provided. Skipping upload.")
+        log("Credentials not provided. Skipping upload.")
 
 if __name__ == "__main__":
     main()
