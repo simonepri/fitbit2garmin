@@ -6,6 +6,7 @@ import pathlib
 import sys
 import csv
 import datetime
+import argparse
 from datetime import date, timedelta
 from getpass import getpass
 
@@ -28,9 +29,15 @@ except ImportError:
     from fitbit2garmin import commands
 
 CACHE_DIR = BASE_DIR / ".cache"
-DATA_DIR = BASE_DIR / "f2g"
+# Check if .env/.auth exists (used by fitbit2garmin dump-weight default)
+# If so, prefer it to ensure we use the active token.
+if (BASE_DIR / ".env" / ".auth").exists():
+    CACHE_DIR = BASE_DIR / ".env"
 
-async def fetch_fitbit_data():
+DATA_DIR = BASE_DIR / "f2g"
+ACTIVITY_DIR = DATA_DIR / "activities"
+
+async def fetch_fitbit_weight():
     """
     Fetches the current day's weight data from Fitbit.
     """
@@ -49,21 +56,33 @@ async def fetch_fitbit_data():
         start_date,
         end_date
     )
-    print("Fitbit download complete.")
+    print("Fitbit weight download complete.")
 
-def upload_to_garmin(email, password):
+async def fetch_fitbit_activities():
+    """
+    Fetches the current day's activity data (TCX) from Fitbit.
+    """
+    end_date = date.today()
+    start_date = end_date
+    
+    print(f"Fetching Fitbit activity data (TCX) for {start_date}...")
+    
+    # Ensure directories exist
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    ACTIVITY_DIR.mkdir(parents=True, exist_ok=True)
+    
+    await commands.dump_activity_tcx(
+        CACHE_DIR,
+        ACTIVITY_DIR,
+        start_date,
+        end_date
+    )
+    print("Fitbit activity download complete.")
+
+def upload_weight_to_garmin(garmin):
     """
     Uploads weight data from CSV files to Garmin Connect.
     """
-    print("Logging into Garmin Connect...")
-    try:
-        garmin = Garmin(email, password)
-        garmin.login()
-        print("Login successful.")
-    except Exception as err:
-        print(f"Error logging in: {err}")
-        return
-
     # Find all weight files
     files = sorted(glob.glob(str(DATA_DIR / "weight.*.csv")))
     
@@ -121,18 +140,51 @@ def upload_to_garmin(email, password):
         except Exception as e:
             print(f"Failed to read {file_path}: {e}")
 
+def upload_activities_to_garmin(garmin):
+    """
+    Uploads TCX activity files to Garmin Connect.
+    """
+    # Find all TCX files
+    files = sorted(glob.glob(str(ACTIVITY_DIR / "*.tcx")))
+    
+    if not files:
+        print("No activity (TCX) files found to upload.")
+        return
+
+    print(f"Found {len(files)} activity files.")
+    
+    for file_path in files:
+        print(f"Uploading activity {file_path}...")
+        try:
+            # upload_activity is the correct method for TCX/FIT/GPX files
+            upload_status = garmin.upload_activity(file_path)
+            print(f"Upload result: {upload_status}")
+        except Exception as e:
+            print(f"Failed to upload {file_path}: {e}")
+
 def main():
+    parser = argparse.ArgumentParser(description="Sync Fitbit data to Garmin Connect.")
+    parser.add_argument("--weight", action="store_true", default=True, help="Sync weight data (default)")
+    parser.add_argument("--activity", action="store_true", help="Sync activity data (TCX)")
+    parser.add_argument("--no-weight", action="store_false", dest="weight", help="Skip weight sync")
+    args = parser.parse_args()
+
     # 1. Fetch Data from Fitbit
-    # Run async loop for fitbit fetch
     try:
-        asyncio.run(fetch_fitbit_data())
+        if args.weight:
+            asyncio.run(fetch_fitbit_weight())
+        if args.activity:
+            asyncio.run(fetch_fitbit_activities())
     except Exception as e:
         print(f"Error fetching Fitbit data: {e}")
-        # Continue to upload phase? Or exit?
-        # If fetch fails (e.g. auth), maybe we still want to upload existing files.
         print("Proceeding to upload phase with existing files...")
 
     # 2. Upload to Garmin
+    # Only login if we have something to upload or just downloaded something
+    if not (args.weight or args.activity):
+        print("Nothing to sync. Use --weight or --activity.")
+        return
+
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
     
@@ -143,7 +195,19 @@ def main():
         password = getpass("Garmin Password: ")
 
     if email and password:
-        upload_to_garmin(email, password)
+        print("Logging into Garmin Connect...")
+        try:
+            garmin = Garmin(email, password)
+            garmin.login()
+            print("Login successful.")
+            
+            if args.weight:
+                upload_weight_to_garmin(garmin)
+            if args.activity:
+                upload_activities_to_garmin(garmin)
+                
+        except Exception as err:
+            print(f"Error logging in: {err}")
     else:
         print("Credentials not provided. Skipping upload.")
 
