@@ -5,7 +5,7 @@ import logging
 import pathlib
 
 from collections.abc import Callable, Coroutine
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -133,21 +133,28 @@ async def dump_weight(
     auth_file_path = cache_directory / auth_file_name
 
     # Fetch weight data month by month
-    date_pairs = [
-        (start, min(start + relativedelta(months=1, days=-1), end_date))
-        for start in map(
-            datetime.date,
-            rrule(MONTHLY, dtstart=start_date, until=end_date, bymonthday=1),
-        )
-    ]
+    date_pairs = []
+    current = start_date
+    while current <= end_date:
+        next_month = current + relativedelta(months=1)
+        end_of_current_month = next_month.replace(day=1) - timedelta(days=1)
+        chunk_end = min(end_of_current_month, end_date)
+        date_pairs.append((current, chunk_end))
+        current = chunk_end + timedelta(days=1)
+
     for i, (start_date_range, end_date_range) in enumerate(date_pairs):
         progress = f"[{i+1}/{len(date_pairs)}]"
         date_range = f"{start_date_range}-{end_date_range}"
         weight_file_path = weight_directory / f"weight.{date_range}.csv"
         weight_done_file_path = cache_directory / f".weight.{date_range}"
-        if weight_done_file_path.exists():
+        
+        # If the range ends today, we want to refresh it to get the latest weight.
+        is_today = end_date_range == date.today()
+        
+        if weight_done_file_path.exists() and not is_today:
             logging.info(f"{progress} Weight data for {date_range} already processed.")
             continue
+            
         logging.info(f"{progress} Fetching weight data for {date_range}.")
         get_weight_timeseries = run_aiohttp_fitbit_api_call(
             f"{progress} weight-{date_range}",
@@ -186,13 +193,15 @@ async def dump_activity(
     auth_file_path = cache_directory / auth_file_name
 
     # Fetch activity data month by month
-    date_pairs = [
-        (start, min(start + relativedelta(months=1, days=-1), end_date))
-        for start in map(
-            datetime.date,
-            rrule(MONTHLY, dtstart=start_date, until=end_date, bymonthday=1),
-        )
-    ]
+    date_pairs = []
+    current = start_date
+    while current <= end_date:
+        next_month = current + relativedelta(months=1)
+        end_of_current_month = next_month.replace(day=1) - timedelta(days=1)
+        chunk_end = min(end_of_current_month, end_date)
+        date_pairs.append((current, chunk_end))
+        current = chunk_end + timedelta(days=1)
+
     for i, (start_date_range, end_date_range) in enumerate(date_pairs):
         progress = f"[{i+1}/{len(date_pairs)}]"
         date_range = f"{start_date_range}-{end_date_range}"

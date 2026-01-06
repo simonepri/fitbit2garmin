@@ -114,6 +114,88 @@ import icon in the top right corner of the page (cloud with upward arrow icon).
 python -m pip uninstall fitbit2garmin
 ```
 
+## Sync to Garmin (Automated)
+
+If you wish to automate the upload of your weight data to Garmin Connect, you can use the provided `sync_garmin.py` script.
+
+1.  **Install the requirement:**
+    ```bash
+    pip install garminconnect
+    ```
+
+2.  **Run the script:**
+    ```bash
+    python sync_garmin.py
+    ```
+
+    You will be prompted for your Garmin Connect email and password.
+    
+    > **Note:** The script will first fetch the current day's weight data from Fitbit (using your existing `fitbit2garmin` authorization) and then attempt to upload all weight CSV files to Garmin.
+
+### Setting Environment Variables
+To automate the login process, you can set your Garmin credentials as environment variables so the script doesn't ask for them.
+
+**Temporary (for current session):**
+```bash
+export GARMIN_EMAIL="your.email@example.com"
+export GARMIN_PASSWORD="yourpassword"
+```
+
+**Permanent (add to .bashrc or .zshrc):**
+1. Open your profile file: `nano ~/.bashrc` (or `~/.zshrc` on Mac)
+2. Add the lines to the bottom:
+   ```bash
+   export GARMIN_EMAIL="your.email@example.com"
+   export GARMIN_PASSWORD="yourpassword"
+   ```
+3. Save and close (Ctrl+O, Enter, Ctrl+X).
+4. Reload the profile: `source ~/.bashrc`
+
+
+## Automated Daily/Hourly Sync (Cron)
+
+To run this script automatically on a server (e.g., Raspberry Pi, Debian VPS) without a display:
+
+1.  **Authenticate Locally First:**
+    Run the script on your local computer (where you have a browser) to complete the Fitbit OAuth2 login.
+    ```bash
+    python sync_garmin.py
+    ```
+    This creates a `.cache/.auth` file containing your access tokens.
+
+2.  **Transfer to Server:**
+    Copy the `.cache` directory (specifically `.cache/.auth`) from your local machine to the server, placing it in the same directory as `sync_garmin.py`.
+
+3.  **Install Dependencies on Server:**
+    Since cron runs with the system Python, it's easiest to install the libraries globally for your user (avoiding complex virtualenv paths):
+    ```bash
+    pip3 install garminconnect aiohttp click python-dateutil
+    ```
+
+4.  **Setup Cron Job:**
+    Edit your user's crontab (**do not use sudo**):
+    ```bash
+    crontab -e
+    ```
+    
+    *Example: Run every day at 6:00 AM*
+    ```bash
+    0 6 * * * export GARMIN_EMAIL="your@email.com"; export GARMIN_PASSWORD="yourpassword"; /usr/bin/python3 /path/to/fitbit2garmin/sync_garmin.py >> /path/to/fitbit2garmin/sync.log 2>&1
+    ```
+
+    *Example: Run every hour*
+    ```bash
+    0 * * * * export GARMIN_EMAIL="your@email.com"; export GARMIN_PASSWORD="yourpassword"; /usr/bin/python3 /path/to/fitbit2garmin/sync_garmin.py >> /path/to/fitbit2garmin/sync.log 2>&1
+    ```
+
+    *Example: Smart Schedule (Every 15 mins between 6 AM and 9 AM)*
+    ```bash
+    */15 6-9 * * * export GARMIN_EMAIL="your@email.com"; export GARMIN_PASSWORD="yourpassword"; /usr/bin/python3 /path/to/fitbit2garmin/sync_garmin.py >> /path/to/fitbit2garmin/sync.log 2>&1
+    ```
+    
+    > **Note:** `/path/to/fitbit2garmin/sync.log` is a file where the script's output (success messages or errors) will be written. This helps you debug if something goes wrong. You can place this file anywhere you have write access.
+
+
 ## Disclaimer
 
 This product is not sold or affiliated in any way with Fitbit or Garmin, and
