@@ -165,6 +165,30 @@ def upload_activities_to_garmin(garmin):
         except Exception as e:
             log(f"Failed to upload {file_path}: {e}")
 
+import time
+
+def cleanup_old_files():
+    """
+    Deletes files in data and activity directories older than 3 days.
+    """
+    cutoff = time.time() - (3 * 86400) # 3 days in seconds
+    
+    for directory in [DATA_DIR, ACTIVITY_DIR]:
+        if not directory.exists():
+            continue
+            
+        for file_path in directory.iterdir():
+            if file_path.is_file():
+                try:
+                    stat = file_path.stat()
+                    if stat.st_mtime < cutoff:
+                        # Double check it's a data file we generated
+                        if file_path.suffix in ['.csv', '.tcx', '.jsonl']:
+                            log(f"Deleting old file: {file_path}")
+                            file_path.unlink()
+                except Exception as e:
+                    log(f"Error checking/deleting {file_path}: {e}")
+
 def main():
     parser = argparse.ArgumentParser(description="Sync Fitbit data to Garmin Connect.")
     parser.add_argument("--weight", action="store_true", default=True, help="Sync weight data (default)")
@@ -213,6 +237,9 @@ def main():
             log(f"Error logging in: {err}")
     else:
         log("Credentials not provided. Skipping upload.")
+        
+    # 3. Cleanup
+    cleanup_old_files()
 
 if __name__ == "__main__":
     main()
